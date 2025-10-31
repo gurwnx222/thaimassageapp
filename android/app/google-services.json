@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "460156669437",
+    "project_id": "thaiapp-1267a",
+    "storage_bucket": "thaiapp-1267a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:460156669437:android:5b42dc97ef3c44d8015d94",
+        "android_client_info": {
+          "package_name": "com.thaiapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvdI-0HhV06qSM7EdnnvOtB-6CXkDuoyk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:460156669437:android:abd218afff674e5a015d94",
+        "android_client_info": {
+          "package_name": "com.thaimassageapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvdI-0HhV06qSM7EdnnvOtB-6CXkDuoyk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
