@@ -9,7 +9,7 @@ import Login from './src/authentication/login/Login';
 import Otp from './src/authentication/register/Otp';
 import ProfileScreen from './src/authentication/register/ProfileScreen';
 import LocationScreen from './src/authentication/register/LocationScreen';
-
+import Homescreen from './src/Home/Homescreen';
 const Stack = createNativeStackNavigator();
 
 export default function Navigation() {
@@ -23,6 +23,7 @@ export default function Navigation() {
         <Stack.Screen name="otp" component={Otp} />
         <Stack.Screen name="profile" component={ProfileScreen} />
         <Stack.Screen name="location" component={LocationScreen} />
+        <Stack.Screen name="home" component={Homescreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

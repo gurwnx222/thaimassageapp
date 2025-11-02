@@ -146,7 +146,7 @@ const Login = ({ navigation }) => {
 
         if (profileStatus.complete) {
           // Profile is complete, navigate to Home
-          navigation.navigate('Home');
+          navigation.navigate('home');
         } else if (profileStatus.needsProfile) {
           // Needs to complete profile
           navigation.navigate('profile');
