@@ -24,7 +24,7 @@ export default function Navigation() {
         <Stack.Screen name="otp" component={Otp} />
         <Stack.Screen name="profile" component={ProfileScreen} />
         <Stack.Screen name="location" component={LocationScreen} />
-        <Stack.Screen name="home" component={Homescreen} />
+        <Stack.Screen name="Home" component={Homescreen} />
         <Stack.Screen name="setting" component={Setting} />
       </Stack.Navigator>
     </NavigationContainer>

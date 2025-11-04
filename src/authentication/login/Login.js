@@ -196,10 +196,10 @@ const Login = ({ navigation }) => {
 
       if (profileStatus.complete) {
         // Profile is complete, navigate to Home
-        navigation.navigate('home');
+        navigation.navigate('Home');
       } else if (profileStatus.needsProfile) {
         // Needs to complete profile
-        navigation.navigate('home');
+        navigation.navigate('Home');
       } else if (profileStatus.needsLocation) {
         // Needs to complete location
         navigation.navigate('location');
@@ -288,7 +288,7 @@ const Login = ({ navigation }) => {
 
         if (profileStatus.complete) {
           // Profile is complete, navigate to Home
-          navigation.navigate('home');
+          navigation.navigate('Home');
         } else if (profileStatus.needsProfile) {
           // Needs to complete profile
           navigation.navigate('profile');

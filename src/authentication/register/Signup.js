@@ -157,7 +157,7 @@ const Signup = ({ navigation }) => {
       console.log('Firebase authentication successful:', userCredential.user);
       
       // Navigate to OTP screen or wherever you want
-      navigation.navigate('home');
+      navigation.navigate('Home');
       
     } catch (error) {
       console.error('Google Sign-In Error:', error);
