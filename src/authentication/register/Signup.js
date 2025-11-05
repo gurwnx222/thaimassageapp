@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 const { width } = Dimensions.get('window');
@@ -49,6 +50,32 @@ const Signup = ({ navigation }) => {
     return emailRegex.test(email);
   };
 
+  // Save user data to Firestore
+  const saveUserToFirestore = async (userId, userData) => {
+    try {
+      console.log('Saving user data to Firestore:', { userId, userData });
+      
+      await firestore()
+        .collection('Useraccount')
+        .doc(userId)
+        .set({
+          name: userData.name || '',
+          email: userData.email || '',
+          gender: userData.gender || '',
+          location: userData.location || '',
+          photoURL: userData.photoURL || '',
+          createdAt: firestore.FieldValue.serverTimestamp(),
+          updatedAt: firestore.FieldValue.serverTimestamp(),
+        }, { merge: true }); // merge: true will update existing fields without overwriting entire document
+      
+      console.log('User data saved successfully to Firestore');
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving user to Firestore:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Firebase create user account function
   const createUserAccount = async (email, password) => {
     try {
@@ -56,6 +83,15 @@ const Signup = ({ navigation }) => {
       const user = userCredential.user;
       
       console.log('User account created successfully:', user.uid);
+      
+      // Save user to Firestore
+      await saveUserToFirestore(user.uid, {
+        name: '',
+        email: user.email,
+        gender: '',
+        location: '',
+        photoURL: '',
+      });
       
       return {
         success: true,
@@ -109,7 +145,7 @@ const Signup = ({ navigation }) => {
     }
   };
 
-  // Google Sign-In function with FIXED error handling
+  // Google Sign-In function with Firestore save
   const signInWithGoogle = async () => {
     try {
       setGoogleLoading(true);
@@ -125,7 +161,7 @@ const Signup = ({ navigation }) => {
       const signInResult = await GoogleSignin.signIn();
       console.log('Google Sign-In result:', signInResult);
       
-      // FIXED: Handle the new response structure {type: 'success', data: {...}}
+      // Handle the new response structure {type: 'success', data: {...}}
       let idToken, user;
       
       if (signInResult.type === 'success') {
@@ -147,6 +183,7 @@ const Signup = ({ navigation }) => {
       }
       
       console.log('Got ID token and user data');
+      console.log('Google user info:', user);
       
       // Create a Google credential with the token
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
@@ -156,7 +193,20 @@ const Signup = ({ navigation }) => {
       
       console.log('Firebase authentication successful:', userCredential.user);
       
-      // Navigate to OTP screen or wherever you want
+      // Save user data to Firestore
+      const saveResult = await saveUserToFirestore(userCredential.user.uid, {
+        name: user?.name || user?.givenName || userCredential.user.displayName || '',
+        email: user?.email || userCredential.user.email || '',
+        gender: '',
+        location: '',
+        photoURL: user?.photo || userCredential.user.photoURL || '',
+      });
+      
+      if (!saveResult.success) {
+        console.error('Failed to save user to Firestore, but authentication was successful');
+      }
+      
+      // Navigate to Home or profile completion screen
       navigation.navigate('Home');
       
     } catch (error) {
@@ -260,8 +310,6 @@ const Signup = ({ navigation }) => {
     await signInWithGoogle();
   };
 
-  // FIXED Debug function
-  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
@@ -387,8 +435,6 @@ const Signup = ({ navigation }) => {
               </Text>
             </View>
           </TouchableOpacity>
-
-         
         </View>
       </ScrollView>
     </View>
@@ -603,18 +649,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#5D4A5D',
     fontWeight: '500',
-  },
-  // Debug button styles (remove in production)
-  debugButton: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: '#333',
-    borderRadius: 5,
-  },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    textAlign: 'center',
   },
 });
 

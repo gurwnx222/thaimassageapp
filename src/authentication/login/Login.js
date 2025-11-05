@@ -50,6 +50,55 @@ const Login = ({ navigation }) => {
     return emailRegex.test(email);
   };
 
+  // Save user data to Firestore (for Google Sign-In)
+  const saveUserToFirestore = async (userId, userData) => {
+    try {
+      console.log('Saving user data to Firestore:', { userId, userData });
+      
+      // Check if user document already exists
+      const userDoc = await firestore()
+        .collection('Useraccount')
+        .doc(userId)
+        .get();
+
+      if (userDoc.exists) {
+        // User exists, update with merge
+        await firestore()
+          .collection('Useraccount')
+          .doc(userId)
+          .set({
+            name: userData.name || userDoc.data().name || '',
+            email: userData.email || userDoc.data().email || '',
+            photoURL: userData.photoURL || userDoc.data().photoURL || '',
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+        
+        console.log('Existing user data updated in Firestore');
+      } else {
+        // New user, create document
+        await firestore()
+          .collection('Useraccount')
+          .doc(userId)
+          .set({
+            name: userData.name || '',
+            email: userData.email || '',
+            gender: userData.gender || '',
+            location: userData.location || '',
+            photoURL: userData.photoURL || '',
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+          });
+        
+        console.log('New user data saved to Firestore');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving user to Firestore:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Check if user profile is complete
   const checkUserProfile = async (userId) => {
     try {
@@ -144,7 +193,7 @@ const Login = ({ navigation }) => {
     }
   };
 
-  // Google Sign-In function
+  // Google Sign-In function with Firestore save
   const signInWithGoogle = async () => {
     try {
       setGoogleLoading(true);
@@ -182,6 +231,7 @@ const Login = ({ navigation }) => {
       }
       
       console.log('Got ID token and user data');
+      console.log('Google user info:', user);
       
       // Create a Google credential with the token
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
@@ -190,6 +240,19 @@ const Login = ({ navigation }) => {
       const userCredential = await auth().signInWithCredential(googleCredential);
       
       console.log('Firebase authentication successful:', userCredential.user);
+      
+      // Save user data to Firestore
+      const saveResult = await saveUserToFirestore(userCredential.user.uid, {
+        name: user?.name || user?.givenName || userCredential.user.displayName || '',
+        email: user?.email || userCredential.user.email || '',
+        gender: '',
+        location: '',
+        photoURL: user?.photo || userCredential.user.photoURL || '',
+      });
+      
+      if (!saveResult.success) {
+        console.error('Failed to save user to Firestore, but authentication was successful');
+      }
       
       // Check profile completion and navigate accordingly
       const profileStatus = await checkUserProfile(userCredential.user.uid);
