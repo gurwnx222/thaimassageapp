@@ -8,6 +8,7 @@ import {
   PanResponder,
   TouchableOpacity,
   StatusBar,
+  PixelRatio,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -15,18 +16,36 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { useLanguage } from '../context/LanguageContext';
-
-// import the separated BottomNav component (now floating)
 import BottomNav from '../component/BottomNav';
 
-const { width, height } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 120;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// How much to raise the card stack (positive number = move up)
-const CARD_RAISE = 60;
+// Responsive scaling functions
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+const scaleFont = (size) => {
+  const scaledSize = (SCREEN_WIDTH / 375) * size;
+  return Math.round(PixelRatio.roundToNearestPixel(scaledSize));
+};
 
-// Spacer height to ensure content doesn't overlap with the floating bottom nav.
-const BOTTOM_NAV_SPACER = 0;
+// Card dimensions that adapt to screen
+const getCardWidth = () => {
+  const cardWidth = SCREEN_WIDTH * 0.88; // 88% of screen
+  return Math.min(cardWidth, 400); // Max 400px on tablets
+};
+
+const getCardHeight = () => {
+  const cardWidth = getCardWidth();
+  const idealHeight = cardWidth * 1.65; // Maintain aspect ratio
+  const maxHeight = SCREEN_HEIGHT * 0.68; // Max 68% of screen height
+  return Math.min(idealHeight, maxHeight);
+};
+
+const CARD_WIDTH = getCardWidth();
+const CARD_HEIGHT = getCardHeight();
+const SWIPE_THRESHOLD = scale(100);
+const CARD_RAISE = verticalScale(40);
 
 const Homescreen = ({ navigation }) => {
   const { currentLanguage, t, formatText, translateDynamic } = useLanguage();
@@ -37,12 +56,10 @@ const Homescreen = ({ navigation }) => {
   const [translatedStudios, setTranslatedStudios] = useState([]);
   const position = useRef(new Animated.ValueXY()).current;
 
-  // Fetch user data on component mount
   useEffect(() => {
     fetchUserName();
   }, []);
 
-  // Translate user name when language changes
   useEffect(() => {
     const translateName = async () => {
       if (userName && userName !== 'User') {
@@ -59,7 +76,6 @@ const Homescreen = ({ navigation }) => {
     translateName();
   }, [userName, currentLanguage]);
 
-  // Dummy data for now — replace with API-driven hook (useStudios) later
   const studios = [
     { 
       id: 1, 
@@ -87,7 +103,6 @@ const Homescreen = ({ navigation }) => {
     },
   ];
 
-  // Translate studios when language changes
   useEffect(() => {
     const translateStudios = async () => {
       if (currentLanguage === 'th') {
@@ -144,7 +159,7 @@ const Homescreen = ({ navigation }) => {
 
   const swipeRight = () => {
     Animated.timing(position, { 
-      toValue: { x: width + 100, y: 0 }, 
+      toValue: { x: SCREEN_WIDTH + 100, y: 0 }, 
       duration: 250, 
       useNativeDriver: false 
     }).start(() => {
@@ -156,7 +171,7 @@ const Homescreen = ({ navigation }) => {
   
   const swipeLeft = () => {
     Animated.timing(position, { 
-      toValue: { x: -width - 100, y: 0 }, 
+      toValue: { x: -SCREEN_WIDTH - 100, y: 0 }, 
       duration: 250, 
       useNativeDriver: false 
     }).start(() => nextCard());
@@ -212,37 +227,37 @@ const Homescreen = ({ navigation }) => {
               </View>
             </View>
             <View style={styles.ratingBadge}>
-              <Icon name="star" size={16} color="#FDB022" />
+              <Icon name="star" size={moderateScale(16)} color="#FDB022" />
               <Text style={styles.ratingText}>{formatText(studio.rating.toString())}</Text>
             </View>
           </View>
 
           <View style={styles.detailsContainer}>
-            <Text style={styles.studioName}>{studio.name}</Text>
+            <Text style={styles.studioName} numberOfLines={1}>{studio.name}</Text>
             <View style={styles.infoRow}>
               <View style={styles.priceContainer}>
-                <Icon name="currency-usd" size={16} color="#C97B84" />
+                <Icon name="currency-usd" size={moderateScale(16)} color="#C97B84" />
                 <Text style={styles.infoText}>
                   {t('home.from')} ${formatText(studio.price.toString())}
                 </Text>
               </View>
               <View style={styles.locationContainer}>
-                <MaterialIcons name="location-on" size={16} color="#C97B84" />
+                <MaterialIcons name="location-on" size={moderateScale(16)} color="#C97B84" />
                 <Text style={styles.infoText} numberOfLines={1}>{studio.location}</Text>
               </View>
             </View>
             <View style={styles.tagsContainer}>
               <View style={styles.tagsRow}>
                 <View style={styles.tag}>
-                  <Text style={styles.tagText}>{studio.services[0]}</Text>
+                  <Text style={styles.tagText} numberOfLines={1}>{studio.services[0]}</Text>
                 </View>
                 <View style={styles.tag}>
-                  <Text style={styles.tagText}>{studio.services[1]}</Text>
+                  <Text style={styles.tagText} numberOfLines={1}>{studio.services[1]}</Text>
                 </View>
               </View>
               <View style={styles.tagsRow}>
                 <View style={styles.tag}>
-                  <Text style={styles.tagText}>{studio.services[2]}</Text>
+                  <Text style={styles.tagText} numberOfLines={1}>{studio.services[2]}</Text>
                 </View>
               </View>
             </View>
@@ -259,7 +274,7 @@ const Homescreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
       <View style={styles.header}>
         <View style={styles.userBadge}>
-          <Text style={styles.userName}>
+          <Text style={styles.userName} numberOfLines={1}>
             {t('home.greeting')} {translatedUserName}
           </Text>
         </View>
@@ -267,13 +282,13 @@ const Homescreen = ({ navigation }) => {
           style={styles.notificationButton}
           onPress={() => navigation.navigate('notifications')}
         >
-          <Icon name="bell-outline" size={22} color="#D96073" />
+          <Icon name="bell-outline" size={moderateScale(22)} color="#D96073" />
         </TouchableOpacity>
       </View>
 
       {showNotification && (
         <View style={styles.notification}>
-          <Icon name="check" size={18} color="#D96073" style={styles.checkIcon} />
+          <Icon name="check" size={moderateScale(18)} color="#D96073" style={styles.checkIcon} />
           <Text style={styles.notificationText}>{t('home.bookingRequestSent')}</Text>
         </View>
       )}
@@ -283,37 +298,43 @@ const Homescreen = ({ navigation }) => {
         {studiosToRender.map((s, i) => renderCard(s, i))}
       </View>
 
-      <View style={{ height: BOTTOM_NAV_SPACER }} />
-
-      <BottomNav navigation={navigation} active="home" bottomOffset={12} />
+      <BottomNav navigation={navigation} active="home" bottomOffset={moderateScale(12)} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#EDE2E0' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#EDE2E0' 
+  },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    paddingHorizontal: 24, 
-    paddingTop: 50, 
-    paddingBottom: 16 
+    paddingHorizontal: moderateScale(20), 
+    paddingTop: verticalScale(50), 
+    paddingBottom: moderateScale(16) 
   },
   userBadge: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     backgroundColor: '#EDCFC9', 
-    paddingHorizontal: 16, 
-    paddingVertical: 10, 
-    borderRadius: 10 
+    paddingHorizontal: moderateScale(16), 
+    paddingVertical: moderateScale(10), 
+    borderRadius: moderateScale(10),
+    maxWidth: SCREEN_WIDTH * 0.6,
   },
-  userName: { fontSize: 16, fontWeight: '600', color: '#3D2C2C' },
+  userName: { 
+    fontSize: scaleFont(15), 
+    fontWeight: '600', 
+    color: '#3D2C2C' 
+  },
   notificationButton: { 
-    width: 48, 
-    height: 48, 
+    width: moderateScale(46), 
+    height: moderateScale(46), 
     backgroundColor: '#EDCFC9', 
-    borderRadius: 14, 
+    borderRadius: moderateScale(12), 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
@@ -321,102 +342,174 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     backgroundColor: '#E8C4CC', 
-    marginHorizontal: 70, 
-    marginTop: 12, 
-    marginBottom: 8, 
-    paddingVertical: 10, 
-    paddingHorizontal: 20, 
-    borderRadius: 20, 
+    marginHorizontal: moderateScale(40), 
+    marginTop: moderateScale(8), 
+    marginBottom: moderateScale(8), 
+    paddingVertical: moderateScale(10), 
+    paddingHorizontal: moderateScale(20), 
+    borderRadius: moderateScale(20), 
     alignSelf: 'center' 
   },
-  checkIcon: { marginRight: 8 },
-  notificationText: { fontSize: 15, color: '#D96073', fontWeight: '700' },
+  checkIcon: { 
+    marginRight: moderateScale(8) 
+  },
+  notificationText: { 
+    fontSize: scaleFont(14), 
+    color: '#D96073', 
+    fontWeight: '700' 
+  },
 
-  cardsContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  cardsContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    paddingBottom: verticalScale(80),
+  },
 
   backgroundCardsContainer: { 
     position: 'absolute', 
-    width: 348, 
-    height: 573, 
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
     alignSelf: 'center' 
   },
-  backgroundCard: { position: 'absolute', width: '100%', height: '100%' },
+  backgroundCard: { 
+    position: 'absolute', 
+    width: '100%', 
+    height: '100%' 
+  },
   backgroundCardInner: { 
     width: '100%', 
     height: '100%', 
-    borderRadius: 56, 
+    borderRadius: moderateScale(48), 
     borderWidth: 1.5, 
     borderColor: '#E5D7D3' 
   },
-  firstCard: { transform: [{ translateX: 8 }], zIndex: 3 },
-  secondCard: { transform: [{ translateX: 16 }], zIndex: 2 },
-  thirdCard: { transform: [{ translateX: 24 }], zIndex: 1 },
+  firstCard: { 
+    transform: [{ translateX: moderateScale(6) }], 
+    zIndex: 3 
+  },
+  secondCard: { 
+    transform: [{ translateX: moderateScale(12) }], 
+    zIndex: 2 
+  },
+  thirdCard: { 
+    transform: [{ translateX: moderateScale(18) }], 
+    zIndex: 1 
+  },
 
   cardContainer: { 
     position: 'absolute', 
-    width: 348, 
-    height: 573, 
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
     alignSelf: 'center', 
     zIndex: 10, 
     shadowColor: '#9E6B62', 
-    shadowOffset: { width: 0, height: 4 }, 
+    shadowOffset: { width: 0, height: moderateScale(4) }, 
     shadowOpacity: 0.5, 
-    shadowRadius: 12, 
+    shadowRadius: moderateScale(12), 
     elevation: 12 
   },
-  card: { flex: 1, borderRadius: 56, overflow: 'hidden' },
+  card: { 
+    flex: 1, 
+    borderRadius: moderateScale(48), 
+    overflow: 'hidden' 
+  },
   imageContainer: { 
     height: '67%', 
     backgroundColor: '#E8DDD8', 
-    borderRadius: 44, 
-    margin: 12, 
+    borderRadius: moderateScale(38), 
+    margin: moderateScale(10), 
     overflow: 'hidden', 
     position: 'relative' 
   },
-  imagePlaceholder: { width: '100%', height: '100%', backgroundColor: '#D4C4BC' },
-  placeholderContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  placeholderText: { fontSize: 16, color: '#9B8B8B' },
+  imagePlaceholder: { 
+    width: '100%', 
+    height: '100%', 
+    backgroundColor: '#D4C4BC' 
+  },
+  placeholderContent: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  placeholderText: { 
+    fontSize: scaleFont(15), 
+    color: '#9B8B8B' 
+  },
   ratingBadge: { 
     position: 'absolute', 
-    top: 14, 
-    right: 14, 
+    top: moderateScale(12), 
+    right: moderateScale(12), 
     flexDirection: 'row', 
     alignItems: 'center', 
     backgroundColor: 'transparent', 
-    paddingHorizontal: 10, 
-    paddingVertical: 5, 
-    borderRadius: 50, 
-    gap: 4, 
+    paddingHorizontal: moderateScale(10), 
+    paddingVertical: moderateScale(5), 
+    borderRadius: moderateScale(50), 
+    gap: moderateScale(4), 
     borderWidth: 1, 
     borderColor: '#FFFFFF' 
   },
-  ratingText: { fontSize: 13, fontWeight: '700', color: '#3D2C2C' },
+  ratingText: { 
+    fontSize: scaleFont(12), 
+    fontWeight: '700', 
+    color: '#3D2C2C' 
+  },
 
-  detailsContainer: { flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 16 },
-  studioName: { fontSize: 22, fontWeight: '700', color: '#3D2C2C', marginBottom: 12 },
+  detailsContainer: { 
+    flex: 1, 
+    paddingHorizontal: moderateScale(20), 
+    paddingTop: moderateScale(4), 
+    paddingBottom: moderateScale(12) 
+  },
+  studioName: { 
+    fontSize: scaleFont(19), 
+    fontWeight: '700', 
+    color: '#3D2C2C', 
+    marginBottom: moderateScale(10) 
+  },
   infoRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    marginBottom: 14, 
-    gap: 20 
+    marginBottom: moderateScale(10), 
+    gap: moderateScale(16) 
   },
-  priceContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  priceContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: moderateScale(4) 
+  },
   locationContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     flex: 1, 
-    gap: 4 
+    gap: moderateScale(4) 
   },
-  infoText: { fontSize: 13, color: '#C97B84', fontWeight: '500' },
-  tagsContainer: { gap: 8 },
-  tagsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  infoText: { 
+    fontSize: scaleFont(12), 
+    color: '#C97B84', 
+    fontWeight: '500',
+    flexShrink: 1,
+  },
+  tagsContainer: { 
+    gap: moderateScale(6) 
+  },
+  tagsRow: { 
+    flexDirection: 'row', 
+    gap: moderateScale(6), 
+    flexWrap: 'wrap' 
+  },
   tag: { 
     backgroundColor: '#F0E4E0', 
-    paddingHorizontal: 14, 
-    paddingVertical: 7, 
-    borderRadius: 14 
+    paddingHorizontal: moderateScale(12), 
+    paddingVertical: moderateScale(6), 
+    borderRadius: moderateScale(12) 
   },
-  tagText: { fontSize: 12, color: '#C97B84', fontWeight: '500' },
+  tagText: { 
+    fontSize: scaleFont(11), 
+    color: '#C97B84', 
+    fontWeight: '500' 
+  },
 });
 
 export default Homescreen;

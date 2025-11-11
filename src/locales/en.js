@@ -193,6 +193,11 @@ export default {
       khlongToei: 'Khlong Toei',
       watthana: 'Watthana',
       bangRak: 'Bang Rak',
+       "title": "Complete your profile",
+    "subtitle": "To get you the best matches please enter your location...",
+    "selectLocation": "Select your location",
+    "completeButton": "Complete my profile",
+    "back": "Back",
     },
      bottomNav: {
     home: 'Home',

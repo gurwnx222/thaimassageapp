@@ -135,9 +135,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ============================================
-  // EVENT: SEND MESSAGE
-  // ============================================
+
   socket.on('send_message', async (data) => {
     try {
       const { conversationId, senderId, receiverId, text, messageType, imageUrl, tempId } = data;

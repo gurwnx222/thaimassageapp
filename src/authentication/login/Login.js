@@ -10,13 +10,50 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  PixelRatio,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useLanguage } from '../../context/LanguageContext';
+import Svg, { Path } from 'react-native-svg';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Responsive scaling functions
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+const scaleFont = (size) => {
+  const scaledSize = (SCREEN_WIDTH / 375) * size;
+  return Math.round(PixelRatio.roundToNearestPixel(scaledSize));
+};
+
+// Responsive dimensions
+const INPUT_WIDTH = Math.min(SCREEN_WIDTH - moderateScale(60), moderateScale(348));
+const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - moderateScale(70), moderateScale(338));
+
+// Google Logo SVG Component
+const GoogleLogo = ({ size = 20 }) => (
+  <Svg width={size} height={size} viewBox="0 0 48 48">
+    <Path
+      fill="#FFC107"
+      d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+    />
+    <Path
+      fill="#FF3D00"
+      d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+    />
+    <Path
+      fill="#4CAF50"
+      d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+    />
+    <Path
+      fill="#1976D2"
+      d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+    />
+  </Svg>
+);
 
 const Login = ({ navigation }) => {
   const { t } = useLanguage();
@@ -496,17 +533,10 @@ const Login = ({ navigation }) => {
           >
             <View style={styles.googleButtonContent}>
               {googleLoading ? (
-                <ActivityIndicator size="small" color="#5D4A5D" style={{ marginRight: 12 }} />
+                <ActivityIndicator size="small" color="#5D4A5D" style={{ marginRight: moderateScale(12) }} />
               ) : (
-                <View style={styles.googleIcon}>
-                  <View style={styles.googleIconContainer}>
-                    <Text style={styles.googleBlue}>G</Text>
-                    <Text style={styles.googleRed}>o</Text>
-                    <Text style={styles.googleYellow}>o</Text>
-                    <Text style={styles.googleBlue}>g</Text>
-                    <Text style={styles.googleGreen}>l</Text>
-                    <Text style={styles.googleRed}>e</Text>
-                  </View>
+                <View style={styles.googleIconWrapper}>
+                  <GoogleLogo size={moderateScale(20)} />
                 </View>
               )}
               <Text style={styles.googleButtonText}>
@@ -527,89 +557,88 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: verticalScale(40),
   },
   header: {
-    marginTop: 80,
-    marginBottom: 40,
+    marginTop: verticalScale(80),
+    marginBottom: verticalScale(40),
   },
   backButton: {
-    marginLeft: 20,
+    marginLeft: moderateScale(20),
   },
   backButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   arrowContainer: {
-    width: 40,
-    height: 40,
+    width: moderateScale(40),
+    height: moderateScale(40),
     backgroundColor: 'rgba(237, 207, 201, 0.8)',
-    borderRadius: 20,
+    borderRadius: moderateScale(20),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: moderateScale(12),
   },
   backArrow: {
-    fontSize: 24,
+    fontSize: scaleFont(24),
     color: '#5D4A5D',
     fontWeight: 'bold',
   },
   backText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#5D4A5D',
     fontWeight: '600',
   },
   titleSection: {
-    paddingHorizontal: 30,
-    marginBottom: 60,
+    paddingHorizontal: moderateScale(30),
+    marginBottom: verticalScale(60),
   },
   title: {
-    fontSize: 32,
+    fontSize: scaleFont(32),
     fontWeight: 'bold',
     color: '#2D1B47',
-    marginBottom: 12,
+    marginBottom: moderateScale(12),
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#7A6B7A',
-    lineHeight: 22,
+    lineHeight: scaleFont(22),
     fontWeight: '400',
   },
   errorContainer: {
-    marginHorizontal: 30,
-    marginBottom: 20,
-    padding: 15,
+    marginHorizontal: moderateScale(30),
+    marginBottom: moderateScale(20),
+    padding: moderateScale(15),
     backgroundColor: 'rgba(217, 96, 115, 0.1)',
-    borderRadius: 8,
+    borderRadius: moderateScale(8),
     borderLeftWidth: 4,
     borderLeftColor: '#D96073',
   },
   errorText: {
     color: '#D96073',
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontWeight: '500',
     textAlign: 'center',
   },
   formSection: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: moderateScale(20),
   },
   inputContainer: {
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: moderateScale(20),
     width: '100%',
     alignItems: 'center',
   },
   textInput: {
-    width: width - 60,
-    maxWidth: 348,
-    height: 56,
+    width: INPUT_WIDTH,
+    height: moderateScale(56),
     backgroundColor: '#EDCFC9',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    fontSize: 16,
+    borderRadius: moderateScale(12),
+    paddingHorizontal: moderateScale(20),
+    paddingVertical: moderateScale(16),
+    fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '500',
     borderWidth: 1,
@@ -617,10 +646,10 @@ const styles = StyleSheet.create({
     shadowColor: '#262628',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: moderateScale(4),
     },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowRadius: moderateScale(1),
     elevation: 4,
   },
   textInputError: {
@@ -629,47 +658,46 @@ const styles = StyleSheet.create({
   },
   eyeButton: {
     position: 'absolute',
-    right: 40,
+    right: (SCREEN_WIDTH - INPUT_WIDTH) / 2 + moderateScale(20),
     top: '50%',
-    marginTop: -12,
+    marginTop: moderateScale(-12),
   },
   eyeIcon: {
-    width: 24,
-    height: 24,
+    width: moderateScale(24),
+    height: moderateScale(24),
     justifyContent: 'center',
     alignItems: 'center',
   },
   eyeText: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     color: '#B8736B',
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginRight: 30,
-    marginBottom: 30,
+    marginRight: (SCREEN_WIDTH - INPUT_WIDTH) / 2,
+    marginBottom: moderateScale(30),
   },
   forgotPasswordText: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     color: '#D96073',
     fontWeight: '500',
   },
   loginButton: {
-    width: width - 70,
-    maxWidth: 338,
-    height: 54,
+    width: BUTTON_WIDTH,
+    height: moderateScale(54),
     backgroundColor: '#D96073',
-    borderRadius: 16,
+    borderRadius: moderateScale(16),
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 2,
-    marginBottom: 30,
+    marginTop: moderateScale(2),
+    marginBottom: moderateScale(30),
     shadowColor: '#262628',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: moderateScale(4),
     },
     shadowOpacity: 0.2,
-    shadowRadius: 12,
+    shadowRadius: moderateScale(12),
     elevation: 8,
   },
   loginButtonDisabled: {
@@ -677,24 +705,23 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontWeight: '700',
   },
   dividerSection: {
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: moderateScale(25),
   },
   dividerText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     color: '#8B7B8B',
     fontWeight: '500',
   },
   googleButton: {
-    width: width - 70,
-    maxWidth: 338,
-    height: 54,
+    width: BUTTON_WIDTH,
+    height: moderateScale(54),
     backgroundColor: 'rgba(237, 207, 201, 0.6)',
-    borderRadius: 12,
+    borderRadius: moderateScale(12),
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -707,35 +734,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  googleIcon: {
-    marginRight: 12,
-  },
-  googleIconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  googleBlue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4285F4',
-  },
-  googleRed: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#EA4335',
-  },
-  googleYellow: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FBBC05',
-  },
-  googleGreen: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#34A853',
+  googleIconWrapper: {
+    marginRight: moderateScale(12),
   },
   googleButtonText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#5D4A5D',
     fontWeight: '500',
   },

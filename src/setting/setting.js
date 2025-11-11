@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  PixelRatio,
+  Image,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -22,13 +24,72 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../component/BottomNav';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+import storage from '@react-native-firebase/storage';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { useLanguage } from '../context/LanguageContext';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const HORIZONTAL_PADDING = 20;
-const ROW_HEIGHT = 48;
-const MAX_CONTENT_WIDTH = Math.min(width - HORIZONTAL_PADDING * 2, 348);
+// Device type detection
+const isSmallDevice = SCREEN_WIDTH < 375;
+const isMediumDevice = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
+const isLargeDevice = SCREEN_WIDTH >= 414;
+const isTablet = SCREEN_WIDTH >= 768;
+
+// Responsive scaling functions with device-specific adjustments
+const scale = (size) => {
+  const baseWidth = isTablet ? 768 : 375;
+  return (SCREEN_WIDTH / baseWidth) * size;
+};
+
+const verticalScale = (size) => {
+  const baseHeight = isTablet ? 1024 : 812;
+  return (SCREEN_HEIGHT / baseHeight) * size;
+};
+
+const moderateScale = (size, factor = 0.5) => {
+  if (isTablet) factor = 0.3; // Less scaling on tablets
+  return size + (scale(size) - size) * factor;
+};
+
+const scaleFont = (size) => {
+  const scaledSize = scale(size);
+  const maxSize = size * (isTablet ? 1.5 : 1.3);
+  const minSize = size * 0.85;
+  const finalSize = Math.min(Math.max(scaledSize, minSize), maxSize);
+  return Math.round(PixelRatio.roundToNearestPixel(finalSize));
+};
+
+// Responsive dimensions with device-specific values
+const HORIZONTAL_PADDING = isTablet 
+  ? moderateScale(40) 
+  : isSmallDevice 
+    ? moderateScale(16) 
+    : moderateScale(20);
+
+const ROW_HEIGHT = isTablet 
+  ? moderateScale(60) 
+  : moderateScale(48);
+
+const MAX_CONTENT_WIDTH = isTablet 
+  ? Math.min(SCREEN_WIDTH * 0.7, 600)
+  : Math.min(SCREEN_WIDTH - HORIZONTAL_PADDING * 2, moderateScale(348));
+
+const AVATAR_SIZE = isTablet 
+  ? moderateScale(120) 
+  : isSmallDevice 
+    ? moderateScale(75) 
+    : moderateScale(90);
+
+const PROFILE_CARD_WIDTH = isTablet 
+  ? moderateScale(320) 
+  : isSmallDevice 
+    ? moderateScale(220) 
+    : moderateScale(244);
+
+const PROFILE_CARD_HEIGHT = isTablet 
+  ? verticalScale(180) 
+  : verticalScale(140);
 
 const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, fieldType = 'text' }) => {
   const [translatedValue, setTranslatedValue] = useState(value || label);
@@ -41,25 +102,18 @@ const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, f
         return;
       }
 
-      // Handle gender translation
       if (value === 'Male' || value === 'Female') {
         setTranslatedValue(t(`genderValues.${value}`));
-      }
-      // Handle numeric values (age, weight)
-      else if (isNumeric) {
+      } else if (isNumeric) {
         setTranslatedValue(formatText(value));
-      }
-      // Handle dynamic text (location, name)
-      else if (fieldType === 'location' || fieldType === 'name') {
+      } else if (fieldType === 'location' || fieldType === 'name') {
         if (currentLanguage === 'th') {
           const translated = await translateDynamic(value);
           setTranslatedValue(translated);
         } else {
           setTranslatedValue(value);
         }
-      }
-      // Default text
-      else {
+      } else {
         setTranslatedValue(value);
       }
     };
@@ -69,13 +123,12 @@ const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, f
 
   return (
     <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.row}>
-      <Text style={styles.rowText}>{translatedValue}</Text>
-      <MaterialIcons name="keyboard-arrow-right" size={20} color="#C97B84" />
+      <Text style={styles.rowText} numberOfLines={1}>{translatedValue}</Text>
+      <MaterialIcons name="keyboard-arrow-right" size={moderateScale(20)} color="#C97B84" />
     </TouchableOpacity>
   );
 };
 
-// Language Option Row with Radio Button
 const LanguageOptionRow = ({ label, isSelected, onPress }) => (
   <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.row}>
     <Text style={styles.rowText}>{label}</Text>
@@ -95,12 +148,13 @@ const Setting = ({ navigation }) => {
   const [modalValue, setModalValue] = useState('');
   const [tempValue, setTempValue] = useState('');
   const [translatedName, setTranslatedName] = useState('');
+  const [profileImage, setProfileImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchUserData();
   }, []);
 
-  // Translate name when language or userData changes
   useEffect(() => {
     const translateName = async () => {
       if (userData?.name) {
@@ -131,6 +185,7 @@ const Setting = ({ navigation }) => {
           const data = userDoc.data();
           console.log('User data loaded:', data);
           setUserData(data);
+          setProfileImage(data.profileImage || null);
         } else {
           console.log('No user document found, creating initial data');
           const initialData = {
@@ -157,7 +212,66 @@ const Setting = ({ navigation }) => {
     }
   };
 
-  // Handle language type selection
+  const handleImagePicker = async () => {
+    const options = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 500,
+      maxHeight: 500,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+        return;
+      }
+
+      if (response.errorCode) {
+        console.log('ImagePicker Error: ', response.errorMessage);
+        Alert.alert(t('alerts.error'), t('alerts.imagePickerError'));
+        return;
+      }
+
+      if (response.assets && response.assets[0]) {
+        const asset = response.assets[0];
+        await uploadImageToFirebase(asset);
+      }
+    });
+  };
+
+  const uploadImageToFirebase = async (asset) => {
+    try {
+      setUploadingImage(true);
+      const currentUser = auth().currentUser;
+      if (!currentUser) return;
+
+      const imageUri = Platform.OS === 'ios' ? asset.uri.replace('file://', '') : asset.uri;
+      const filename = `profile_${currentUser.uid}_${Date.now()}.jpg`;
+      const reference = storage().ref(`profileImages/${filename}`);
+
+      await reference.putFile(imageUri);
+      const downloadURL = await reference.getDownloadURL();
+
+      await firestore()
+        .collection('Useraccount')
+        .doc(currentUser.uid)
+        .update({
+          profileImage: downloadURL,
+          updatedAt: firestore.FieldValue.serverTimestamp(),
+        });
+
+      setProfileImage(downloadURL);
+      setUserData((prev) => ({ ...prev, profileImage: downloadURL }));
+      
+      console.log('Profile image uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert(t('alerts.error'), t('alerts.imageUploadFailed'));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleLanguageTypeSelect = async (lang) => {
     try {
       await changeLanguage(lang);
@@ -190,7 +304,6 @@ const Setting = ({ navigation }) => {
         return;
       }
 
-      // For other fields, check if empty
       if (modalType !== 'gender') {
         if (!tempValue || tempValue.trim() === '') {
           Alert.alert(t('alerts.error'), t('alerts.enterValue'));
@@ -222,9 +335,6 @@ const Setting = ({ navigation }) => {
       console.log('Field updated successfully');
       setUserData((prev) => ({ ...prev, ...updateData }));
       closeModal();
-      
-      const fieldName = t(`personalDetails.${modalType}`);
-      Alert.alert(t('alerts.success'), `${fieldName} ${t('alerts.updateSuccess')}`);
     } catch (error) {
       console.error('Error updating field:', error);
       Alert.alert(t('alerts.error'), t('alerts.updateFailed'));
@@ -336,43 +446,70 @@ const Setting = ({ navigation }) => {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#D4A5AC" />
 
-      {/* Colored Header */}
-      <View style={styles.headerContainer}>
+      {/* Two-Tone Background Layout */}
+      <View style={styles.mainContainer}>
+        {/* Top Half - Gradient Background */}
         <LinearGradient
           colors={['#D4A5AC', '#E8C4D4']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
+          style={styles.topHalfBackground}
         >
           <Text style={styles.headerTitle}>{t('profile.header')}</Text>
         </LinearGradient>
-      </View>
 
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Card */}
-        <View style={styles.profileCardContainer}>
-          <View style={styles.profileCardBackground} />
-          
-          <View style={styles.profileCard}>
-            <View style={styles.avatarWrap}>
-              <View style={styles.avatarInner}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarEmoji}>😊</Text>
+        {/* Profile Card - Positioned to overlap both sections */}
+        <View style={styles.profileCardAbsolute}>
+          <View style={styles.profileCardContainer}>
+            {/* Shadow/Background Layer */}
+            <View style={styles.profileCardShadow} />
+            
+            {/* Main Profile Card */}
+            <View style={styles.profileCard}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatarInner}>
+                  <View style={styles.avatarCircle}>
+                    {uploadingImage ? (
+                      <ActivityIndicator size="large" color="#FFFFFF" />
+                    ) : profileImage ? (
+                      <Image 
+                        source={{ uri: profileImage }} 
+                        style={styles.avatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.avatarEmoji}>😊</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.editBadge}
+                    onPress={handleImagePicker}
+                    disabled={uploadingImage}
+                  >
+                    <MaterialCommunityIcons 
+                      name="pencil" 
+                      size={moderateScale(14)} 
+                      color="#fff" 
+                    />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.editBadge}>
-                  <MaterialCommunityIcons name="pencil" size={14} color="#fff" />
-                </TouchableOpacity>
               </View>
+              <Text style={styles.profileName} numberOfLines={2}>
+                {translatedName || t('profile.name')}
+              </Text>
             </View>
-            <Text style={styles.profileName}>
-              {translatedName || t('profile.name')}
-            </Text>
           </View>
         </View>
 
+        {/* Bottom Half - Main Background Color */}
+        <View style={styles.bottomHalfBackground} />
+      </View>
+
+      {/* Main Content with ScrollView */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Personal Details Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('personalDetails.title')}</Text>
@@ -418,14 +555,12 @@ const Setting = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('settings.title')}</Text>
           
-          {/* English (Default Language) */}
           <LanguageOptionRow
             label={t('settings.english')}
             isSelected={currentLanguage === 'en'}
             onPress={() => handleLanguageTypeSelect('en')}
           />
 
-          {/* Thai (Preferred Language) */}
           <LanguageOptionRow
             label={t('settings.thai')}
             isSelected={currentLanguage === 'th'}
@@ -439,7 +574,7 @@ const Setting = ({ navigation }) => {
           activeOpacity={0.9} 
           onPress={() => setLogoutModalVisible(true)}
         >
-          <Feather name="log-out" size={18} color="#C97B84" />
+          <Feather name="log-out" size={moderateScale(18)} color="#C97B84" />
           <Text style={styles.logoutText}>{t('logout.button')}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -488,7 +623,7 @@ const Setting = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.logoutModalContent}>
             <View style={styles.logoutIconContainer}>
-              <Feather name="log-out" size={48} color="#C97B84" />
+              <Feather name="log-out" size={moderateScale(48)} color="#C97B84" />
             </View>
             
             <Text style={styles.logoutModalTitle}>{t('logout.title')}</Text>
@@ -530,156 +665,192 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDE2E0',
   },
   
-  // Header Styles
-  headerContainer: {
+  // Main Container for Two-Tone Background
+  mainContainer: {
+    position: 'relative',
     width: '100%',
-    overflow: 'hidden',
+    height: isTablet ? verticalScale(320) : verticalScale(280),
   },
-  headerGradient: {
+
+  // Top Half - Gradient Background
+  topHalfBackground: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 60 : 50,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
+    height: '55%',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: Platform.OS === 'ios' 
+      ? moderateScale(16) 
+      : moderateScale(12),
   },
-  headerTitle: {
-    fontSize: 32,
+    headerTitle: {
+    fontSize: scaleFont(32),
     fontWeight: '700',
     color: '#2D1B47',
     letterSpacing: 0.5,
+    marginTop: isTablet 
+      ? moderateScale(30) 
+      : isSmallDevice 
+        ? moderateScale(15)  // Reduced for small devices
+        : moderateScale(20), // Reduced for normal devices
+    textAlign: 'center',
+    paddingHorizontal: HORIZONTAL_PADDING,
   },
 
-  // Container
-  container: {
-    paddingTop: 30,
-    paddingBottom: 160,
-    paddingHorizontal: HORIZONTAL_PADDING,
+  // Bottom Half - Main Background Color
+  bottomHalfBackground: {
+    width: '100%',
+    height: '45%',
+    backgroundColor: '#EDE2E0',
+  },
+
+  // Profile Card - Absolutely Positioned
+  profileCardAbsolute: {
+    position: 'absolute',
+    top: '55%',
+    left: 0,
+    right: 0,
+    transform: [{ 
+      translateY: isTablet 
+        ? moderateScale(-90) 
+        : moderateScale(-70) 
+    }],
+    alignItems: 'center',
+    zIndex: 100,
+  },
+
+  // ScrollView Content
+  scrollContent: {
+    paddingTop: 0,
+    paddingBottom: isTablet ? verticalScale(200) : verticalScale(160),
     alignItems: 'center',
     backgroundColor: '#EDE2E0',
   },
 
-  // Profile Card
+  // Profile Card Container
   profileCardContainer: {
     position: 'relative',
-    width: 244,
-    height: 140,
-    marginBottom: 30,
+    width: PROFILE_CARD_WIDTH,
+    height: PROFILE_CARD_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileCardBackground: {
+  profileCardShadow: {
     position: 'absolute',
-    width: 244,
-    height: 140,
-    backgroundColor: '#FFF6EF',
-    opacity: 0.3,
-    borderRadius: 16,
-    elevation: 8,
-    shadowColor: '#262628',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
+    width: PROFILE_CARD_WIDTH,
+    height: PROFILE_CARD_HEIGHT,
+    backgroundColor: 'transparent',
+    borderRadius: moderateScale(16),
+    top: 0,
+    left: 0,
   },
   profileCard: {
-    width: 244,
-    height: 140,
-    backgroundColor: '#FFF6EF',
-    borderRadius: 16,
+    width: PROFILE_CARD_WIDTH,
+    height: PROFILE_CARD_HEIGHT,
+    backgroundColor: 'transparent',
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    elevation: 8,
-    shadowColor: '#262628',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
+    paddingVertical: moderateScale(12),
+    paddingHorizontal: moderateScale(8),
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   avatarWrap: {
-    marginBottom: 8,
+    marginBottom: moderateScale(8),
   },
   avatarInner: {
     position: 'relative',
   },
   avatarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
     backgroundColor: '#2D1B47',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarEmoji: {
-    fontSize: 40,
+    fontSize: scaleFont(40),
   },
   editBadge: {
     position: 'absolute',
-    right: -4,
+    right: moderateScale(-4),
     bottom: 0,
     backgroundColor: '#C97B84',
-    borderRadius: 12,
-    padding: 6,
+    borderRadius: moderateScale(12),
+    padding: moderateScale(6),
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   profileName: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     color: '#7A6B7A',
     fontWeight: '500',
+    maxWidth: PROFILE_CARD_WIDTH - moderateScale(24),
+    textAlign: 'center',
   },
 
   // Sections
   section: {
     width: MAX_CONTENT_WIDTH,
-    marginBottom: 25,
+    marginBottom: verticalScale(25),
+    paddingHorizontal: isTablet ? 0 : HORIZONTAL_PADDING,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: moderateScale(12),
   },
   row: {
     height: ROW_HEIGHT,
     backgroundColor: '#FEC9BE',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    borderRadius: moderateScale(12),
+    paddingHorizontal: moderateScale(16),
+    marginBottom: moderateScale(8),
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: moderateScale(2) },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: moderateScale(4),
     elevation: 2,
   },
   rowText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '500',
+    flex: 1,
+    marginRight: moderateScale(8),
   },
 
   // Logout Button
   logoutBtn: {
     width: MAX_CONTENT_WIDTH,
     backgroundColor: '#FFF6EF',
-    height: 52,
-    borderRadius: 16,
+    height: moderateScale(52),
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginTop: 10,
+    marginTop: verticalScale(10),
+    marginHorizontal: isTablet ? 0 : HORIZONTAL_PADDING,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: moderateScale(4) },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: moderateScale(8),
     elevation: 4,
   },
   logoutText: {
-    marginLeft: 10,
+    marginLeft: moderateScale(10),
     color: '#C97B84',
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontWeight: '600',
   },
 
@@ -689,51 +860,53 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: moderateScale(20),
   },
   modalContent: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: isTablet ? moderateScale(480) : moderateScale(380),
     backgroundColor: '#FEC9BE',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: moderateScale(20),
+    padding: moderateScale(24),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: moderateScale(4) },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowRadius: moderateScale(12),
     elevation: 8,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: scaleFont(20),
     fontWeight: '600',
     color: '#2D1B47',
-    marginBottom: 20,
+    marginBottom: moderateScale(20),
   },
   input: {
     backgroundColor: '#F5DDD8',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    borderRadius: moderateScale(12),
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: moderateScale(14),
+    fontSize: scaleFont(16),
     color: '#2D1B47',
-    marginBottom: 24,
+    marginBottom: moderateScale(24),
     borderWidth: 1,
     borderColor: '#E6C4C0',
+    minHeight: moderateScale(50),
   },
   optionsContainer: {
-    marginBottom: 24,
+    marginBottom: moderateScale(24),
   },
   option: {
     backgroundColor: '#F5DDD8',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
+    borderRadius: moderateScale(12),
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: moderateScale(14),
+    marginBottom: moderateScale(12),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E6C4C0',
+    minHeight: moderateScale(50),
   },
   optionSelected: {
     borderColor: '#C97B84',
@@ -741,14 +914,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5E5E1',
   },
   optionText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '500',
+
   },
   radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: moderateScale(24),
+    height: moderateScale(24),
+    borderRadius: moderateScale(12),
     borderWidth: 2,
     borderColor: '#C97B84',
     justifyContent: 'center',
@@ -756,38 +930,40 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   radioButtonInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: moderateScale(14),
+    height: moderateScale(14),
+    borderRadius: moderateScale(7),
     backgroundColor: '#C97B84',
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: moderateScale(12),
   },
   cancelButton: {
     flex: 1,
     backgroundColor: '#E8D4D0',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: moderateScale(12),
+    paddingVertical: moderateScale(14),
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: moderateScale(48),
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontWeight: '600',
     color: '#7A6B7A',
   },
   doneButton: {
     flex: 1,
     backgroundColor: '#C97B84',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: moderateScale(12),
+    paddingVertical: moderateScale(14),
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: moderateScale(48),
   },
   doneButtonText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -795,51 +971,54 @@ const styles = StyleSheet.create({
   // Logout Modal
   logoutModalContent: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: isTablet ? moderateScale(420) : moderateScale(340),
     backgroundColor: '#FEC9BE',
-    borderRadius: 24,
-    padding: 32,
+    borderRadius: moderateScale(24),
+    padding: moderateScale(32),
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: moderateScale(6) },
     shadowOpacity: 0.3,
-    shadowRadius: 16,
+    shadowRadius: moderateScale(16),
     elevation: 10,
   },
   logoutIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: moderateScale(80),
+    height: moderateScale(80),
+    borderRadius: moderateScale(40),
     backgroundColor: '#F5DDD8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: moderateScale(20),
     shadowColor: '#C97B84',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: moderateScale(4) },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowRadius: moderateScale(8),
     elevation: 4,
   },
   logoutModalTitle: {
-    fontSize: 24,
+    fontSize: scaleFont(24),
     fontWeight: '700',
     color: '#2D1B47',
-    marginBottom: 12,
+    marginBottom: moderateScale(12),
+    textAlign: 'center',
   },
   logoutModalMessage: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#7A6B7A',
     textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 22,
+    marginBottom: moderateScale(28),
+    lineHeight: scaleFont(22),
+    paddingHorizontal: moderateScale(10),
   },
   logoutConfirmButton: {
     flex: 1,
     backgroundColor: '#C97B84',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: moderateScale(12),
+    paddingVertical: moderateScale(14),
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: moderateScale(48),
   },
 });
 

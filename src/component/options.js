@@ -7,11 +7,21 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  PixelRatio,
 } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const options = ({navigation}) => { // Changed from 'options' to 'LuciScreen'
+// Responsive scaling functions
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+const scaleFont = (size) => {
+  const scaledSize = (SCREEN_WIDTH / 375) * size;
+  return Math.round(PixelRatio.roundToNearestPixel(scaledSize));
+};
+
+const options = ({navigation}) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim1 = useRef(new Animated.Value(100)).current;
   const slideAnim2 = useRef(new Animated.Value(100)).current;
@@ -177,12 +187,12 @@ const options = ({navigation}) => { // Changed from 'options' to 'LuciScreen'
 
   const bounce1Interpolate = bounceAnim1.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -8],
+    outputRange: [0, moderateScale(-8)],
   });
 
   const bounce2Interpolate = bounceAnim2.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -6],
+    outputRange: [0, moderateScale(-6)],
   });
 
   const glow1Interpolate = glowAnim1.interpolate({
@@ -244,7 +254,7 @@ const options = ({navigation}) => { // Changed from 'options' to 'LuciScreen'
             </View>
             <View style={styles.textContent}>
               <Text style={styles.serviceName}>Zen Thai Studio</Text>
-              <Text style={styles.serviceMessage}>thank you for book.....</Text>
+              <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
             </View>
             <Text style={styles.timestamp}>now</Text>
           </View>
@@ -281,7 +291,7 @@ const options = ({navigation}) => { // Changed from 'options' to 'LuciScreen'
             <View style={styles.textContent}>
               <Text style={styles.serviceName}>Caccoon</Text>
               <Text style={styles.strikethrough}>Healing</Text>
-              <Text style={styles.serviceMessage}>thank you for book.....</Text>
+              <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
             </View>
             <Text style={styles.timestamp}>6:30 A.M</Text>
           </View>
@@ -331,53 +341,53 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginTop: 80,
-    marginBottom: 80,
-    paddingHorizontal: 30,
+    marginTop: verticalScale(80),
+    marginBottom: verticalScale(80),
+    paddingHorizontal: moderateScale(30),
   },
   title: {
-    fontSize: 48,
+    fontSize: scaleFont(48),
     fontWeight: 'bold',
     color: '#2D1B47',
-    marginBottom: 10,
+    marginBottom: moderateScale(10),
     letterSpacing: 1,
     textShadowColor: 'rgba(45, 27, 71, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: moderateScale(2) },
+    textShadowRadius: moderateScale(4),
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     color: '#7A6B7A',
     fontWeight: '500',
   },
   cardsContainer: {
-    paddingHorizontal: 25,
-    marginBottom: 100,
-    gap: 25,
+    paddingHorizontal: moderateScale(25),
+    marginBottom: verticalScale(100),
+    gap: moderateScale(25),
   },
   cardShadowContainer: {
     shadowColor: '#2D1B47',
     shadowOffset: {
       width: 0,
-      height: 12,
+      height: moderateScale(12),
     },
     shadowOpacity: 0.2,
-    shadowRadius: 25,
+    shadowRadius: moderateScale(25),
     elevation: 15,
   },
   notificationCard: {
-    borderRadius: 24,
+    borderRadius: moderateScale(24),
     overflow: 'hidden',
     position: 'relative',
   },
   cardGlowEffect: {
     position: 'absolute',
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
+    top: moderateScale(-10),
+    left: moderateScale(-10),
+    right: moderateScale(-10),
+    bottom: moderateScale(-10),
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 34,
+    borderRadius: moderateScale(34),
     zIndex: -2,
   },
   cardBackground: {
@@ -387,172 +397,171 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#EDCFC9',
-    borderRadius: 24,
+    borderRadius: moderateScale(24),
     borderWidth: 1.5,
     borderColor: '#EDCFC9',
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 22,
-    paddingHorizontal: 22,
+    paddingVertical: moderateScale(22),
+    paddingHorizontal: moderateScale(22),
     zIndex: 1,
   },
   iconContainer: {
-    marginRight: 18,
+    marginRight: moderateScale(18),
     position: 'relative',
   },
   zenIcon: {
-    width: 56,
-    height: 56,
+    width: moderateScale(56),
+    height: moderateScale(56),
     backgroundColor: '#4A7C59',
-    borderRadius: 28,
+    borderRadius: moderateScale(28),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#4A7C59',
     shadowOffset: {
       width: 0,
-      height: 6,
+      height: moderateScale(6),
     },
     shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowRadius: moderateScale(12),
     elevation: 8,
   },
   caccoonIcon: {
-    width: 56,
-    height: 56,
+    width: moderateScale(56),
+    height: moderateScale(56),
     backgroundColor: '#8B7B8B',
-    borderRadius: 28,
+    borderRadius: moderateScale(28),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#8B7B8B',
     shadowOffset: {
       width: 0,
-      height: 6,
+      height: moderateScale(6),
     },
     shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowRadius: moderateScale(12),
     elevation: 8,
   },
   iconGlow: {
     position: 'absolute',
-    top: -6,
-    left: -6,
-    right: -6,
-    bottom: -6,
+    top: moderateScale(-6),
+    left: moderateScale(-6),
+    right: moderateScale(-6),
+    bottom: moderateScale(-6),
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 34,
+    borderRadius: moderateScale(34),
     zIndex: -1,
   },
   omSymbol: {
-    fontSize: 28,
+    fontSize: scaleFont(28),
     color: '#E8A87C',
     fontWeight: 'bold',
   },
   flowerSymbol: {
-    fontSize: 24,
+    fontSize: scaleFont(24),
   },
   textContent: {
     flex: 1,
+    marginRight: moderateScale(10),
   },
   serviceName: {
-    fontSize: 20,
+    fontSize: scaleFont(20),
     fontWeight: '700',
     color: '#2D1B47',
-    marginBottom: 3,
+    marginBottom: moderateScale(3),
   },
   strikethrough: {
-    fontSize: 20,
+    fontSize: scaleFont(20),
     fontWeight: '700',
     color: '#2D1B47',
     textDecorationLine: 'line-through',
-    marginBottom: 3,
+    marginBottom: moderateScale(3),
   },
   serviceMessage: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     color: '#7A6B7A',
     fontWeight: '400',
   },
   timestamp: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     color: '#7A6B7A',
     fontWeight: '600',
   },
   darkBarsContainer: {
     position: 'absolute',
-    bottom: 120,
+    bottom: verticalScale(120),
     left: 0,
     right: 0,
-    height: 50,
+    height: moderateScale(50),
   },
   leftDarkBar: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 10,
+    width: moderateScale(10),
     height: '100%',
     backgroundColor: '#2D1B47',
-    borderTopRightRadius: 5,
-    borderBottomRightRadius: 5,
+    borderTopRightRadius: moderateScale(5),
+    borderBottomRightRadius: moderateScale(5),
   },
   rightDarkBar: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 10,
+    width: moderateScale(10),
     height: '100%',
     backgroundColor: '#2D1B47',
-    borderTopLeftRadius: 5,
-    borderBottomLeftRadius: 5,
+    borderTopLeftRadius: moderateScale(5),
+    borderBottomLeftRadius: moderateScale(5),
   },
   bottomShadeContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 300,
+    height: verticalScale(300),
   },
   bottomShade: {
     flex: 1,
     backgroundColor: 'rgba(210, 190, 240, 1)',
-    borderTopLeftRadius: 100,
-    borderTopRightRadius: 100,
+    borderTopLeftRadius: moderateScale(100),
+    borderTopRightRadius: moderateScale(100),
   },
   buttonsContainer: {
     position: 'absolute',
-    bottom: 50,
+    bottom: verticalScale(50),
     alignItems: 'center',
     width: '100%',
-    gap: 15,
+    gap: moderateScale(15),
   },
   createAccountButton: {
-    // Exact specifications from your layout
-    width: 216,
-    height: 52,
+    width: moderateScale(216),
+    height: moderateScale(52),
     backgroundColor: '#D96073',
-    borderRadius: 16, // Changed from 28 to 16 as per specs
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#BA7F88',
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: moderateScale(8),
     },
     shadowOpacity: 0.35,
-    shadowRadius: 15,
+    shadowRadius: moderateScale(15),
     elevation: 10,
   },
   createAccountText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontWeight: '700',
   },
   loginButton: {
-    // Same dimensions as create account button
-    width: 216,
-    height: 52,
+    width: moderateScale(216),
+    height: moderateScale(52),
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 16, // Changed from 28 to 16 as per specs
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -560,18 +569,26 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 6,
+      height: moderateScale(6),
     },
     shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowRadius: moderateScale(10),
     elevation: 6,
   },
   loginText: {
     color: '#7A6B7A',
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontWeight: '600',
   },
-
+  homeIndicator: {
+    position: 'absolute',
+    bottom: verticalScale(10),
+    alignSelf: 'center',
+    width: moderateScale(134),
+    height: moderateScale(5),
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: moderateScale(2.5),
+  },
 });
 
-export default options; // Changed from 'options' to 'LuciScreen'
+export default options;
