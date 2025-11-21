@@ -8,7 +8,11 @@ import {
   Animated,
   Dimensions,
   PixelRatio,
+  Platform,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { BlurView } from '@react-native-community/blur';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -207,7 +211,7 @@ const options = ({navigation}) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#C8B5DB" />
+      <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
       
       {/* Header */}
       <View style={styles.header}>
@@ -215,101 +219,154 @@ const options = ({navigation}) => {
         <Text style={styles.subtitle}>Book your favorite massage</Text>
       </View>
 
-      {/* Animated Notification Cards with Enhanced Effects */}
-      <Animated.View 
-        style={[
-          styles.cardsContainer,
-          {
-            opacity: fadeAnim,
-          }
-        ]}
-      >
-        {/* Zen Thai Studio Card */}
-        <Animated.View
-          style={[
-            styles.notificationCard,
-            styles.cardShadowContainer,
-            {
-              transform: [
-                { translateY: Animated.add(slideAnim1, bounce1Interpolate) },
-                { scale: scaleAnim1 },
-                { rotate: card1RotateInterpolate }
-              ],
-            }
-          ]}
-        >
-          <Animated.View 
-            style={[
-              styles.cardGlowEffect,
-              { opacity: glow1Interpolate }
-            ]} 
-          />
-          <View style={styles.cardBackground} />
-          <View style={styles.cardContent}>
-            <View style={styles.iconContainer}>
-              <View style={styles.zenIcon}>
-                <Text style={styles.omSymbol}>ॐ</Text>
-                <View style={styles.iconGlow} />
-              </View>
-            </View>
-            <View style={styles.textContent}>
-              <Text style={styles.serviceName}>Zen Thai Studio</Text>
-              <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
-            </View>
-            <Text style={styles.timestamp}>now</Text>
+      {/* Phone Frame Container */}
+      <View style={styles.phoneFrameContainer}>
+        {/* Phone Bezel Wrapper */}
+        <View style={styles.phoneBezeLWrapper}>
+          {/* Top Notch */}
+          <View style={styles.notchContainer}>
+            <View style={styles.notch} />
           </View>
-        </Animated.View>
 
-        {/* Caccoon Healing Card */}
-        <Animated.View
-          style={[
-            styles.notificationCard,
-            styles.cardShadowContainer,
-            {
-              transform: [
-                { translateY: Animated.add(slideAnim2, bounce2Interpolate) },
-                { scale: scaleAnim2 },
-                { rotate: card2RotateInterpolate }
-              ],
-            }
-          ]}
-        >
-          <Animated.View 
-            style={[
-              styles.cardGlowEffect,
-              { opacity: glow2Interpolate }
-            ]} 
-          />
-          <View style={styles.cardBackground} />
-          <View style={styles.cardContent}>
-            <View style={styles.iconContainer}>
-              <View style={styles.caccoonIcon}>
-                <Text style={styles.flowerSymbol}>🌸</Text>
-                <View style={styles.iconGlow} />
+          {/* Phone Border Container */}
+          <View style={styles.phoneBorderContainer}>
+            {/* Phone Screen Content */}
+            <View style={styles.phoneScreen}>
+              {/* Date & Time Display */}
+              <View style={styles.dateTimeContainer}>
+                <Text style={styles.dateText}>Monday, October 31</Text>
+                <Text style={styles.timeText}>9:41</Text>
               </View>
-            </View>
-            <View style={styles.textContent}>
-              <Text style={styles.serviceName}>Caccoon</Text>
-              <Text style={styles.strikethrough}>Healing</Text>
-              <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
-            </View>
-            <Text style={styles.timestamp}>6:30 A.M</Text>
-          </View>
-        </Animated.View>
-      </Animated.View>
 
-      {/* Dark bars on sides */}
-      <View style={styles.darkBarsContainer}>
-        <View style={styles.leftDarkBar} />
-        <View style={styles.rightDarkBar} />
+              {/* Animated Notification Cards */}
+              <Animated.View 
+                style={[
+                  styles.cardsContainer,
+                  {
+                    opacity: fadeAnim,
+                  }
+                ]}
+              >
+                {/* Zen Thai Studio Card */}
+                <Animated.View
+                  style={[
+                    styles.notificationCard,
+                    styles.cardShadowContainer,
+                    {
+                      transform: [
+                        { translateY: Animated.add(slideAnim1, bounce1Interpolate) },
+                        { scale: scaleAnim1 },
+                        { rotate: card1RotateInterpolate }
+                      ],
+                    }
+                  ]}
+                >
+                  <Animated.View 
+                    style={[
+                      styles.cardGlowEffect,
+                      { opacity: glow1Interpolate }
+                    ]} 
+                  />
+                  <View style={styles.cardBackground} />
+                  <View style={styles.cardContent}>
+                    <View style={styles.iconContainer}>
+                      <View style={styles.zenIcon}>
+                        <Text style={styles.omSymbol}>ॐ</Text>
+                      </View>
+                    </View>
+                    <View style={styles.textContent}>
+                      <Text style={styles.serviceName}>Zen Thai Studio</Text>
+                      <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
+                    </View>
+                    <Text style={styles.timestamp}>now</Text>
+                  </View>
+                </Animated.View>
+
+                {/* Caccoon Healing Card */}
+                <Animated.View
+                  style={[
+                    styles.notificationCard,
+                    styles.cardShadowContainer,
+                    {
+                      transform: [
+                        { translateY: Animated.add(slideAnim2, bounce2Interpolate) },
+                        { scale: scaleAnim2 },
+                        { rotate: card2RotateInterpolate }
+                      ],
+                    }
+                  ]}
+                >
+                  <Animated.View 
+                    style={[
+                      styles.cardGlowEffect,
+                      { opacity: glow2Interpolate }
+                    ]} 
+                  />
+                  <View style={styles.cardBackground} />
+                  <View style={styles.cardContent}>
+                    <View style={styles.iconContainer}>
+                      <View style={styles.caccoonIcon}>
+                        <Text style={styles.flowerSymbol}>🌸</Text>
+                      </View>
+                    </View>
+                    <View style={styles.textContent}>
+                      <View style={styles.serviceNameContainer}>
+                        <Text style={styles.serviceName}>Caccoon </Text>
+                        <Text style={styles.strikethrough}>Healing</Text>
+                      </View>
+                      <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
+                    </View>
+                    <Text style={styles.timestamp}>6:30 A.M</Text>
+                  </View>
+                </Animated.View>
+              </Animated.View>
+            </View>
+          </View>
+        </View>
       </View>
 
-      {/* Bottom shade */}
-      <View style={styles.bottomShadeContainer}>
-        <View style={styles.bottomShade} />
+      {/* Bottom Curved Arch Section with Blur */}
+      <View style={styles.bottomArchContainer}>
+        <Svg
+          height="100%"
+          width="100%"
+          viewBox={`0 0 ${SCREEN_WIDTH} 250`}
+          preserveAspectRatio="none"
+          style={styles.archSvg}
+        >
+          <Defs>
+            <SvgLinearGradient id="archGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="rgba(225, 210, 240, 0.6)" stopOpacity="1" />
+              <Stop offset="25%" stopColor="rgba(215, 195, 235, 0.75)" stopOpacity="1" />
+              <Stop offset="50%" stopColor="rgba(208, 188, 228, 0.88)" stopOpacity="1" />
+              <Stop offset="100%" stopColor="rgba(200, 181, 219, 1)" stopOpacity="1" />
+            </SvgLinearGradient>
+          </Defs>
+          {/* Upside-down arch/dome shape */}
+          <Path
+            d={`M 0 0
+                L 0 60
+                Q ${SCREEN_WIDTH * 0.5} 0, ${SCREEN_WIDTH} 60
+                L ${SCREEN_WIDTH} 250
+                L 0 250 Z`}
+            fill="url(#archGradient)"
+          />
+        </Svg>
+        
+        {/* Blur overlay */}
+        {Platform.OS === 'ios' ? (
+          <BlurView
+            style={styles.blurOverlay}
+            blurType="light"
+            blurAmount={15}
+            reducedTransparencyFallbackColor="rgba(210, 190, 240, 0.75)"
+          />
+        ) : (
+          <View style={styles.androidBlurOverlay} />
+        )}
       </View>
 
-      {/* Bottom Buttons with exact specifications */}
+      {/* Bottom Buttons */}
       <View style={styles.buttonsContainer}>
         <TouchableOpacity 
           style={styles.createAccountButton}
@@ -327,9 +384,6 @@ const options = ({navigation}) => {
           <Text style={styles.loginText}>Login</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Bottom Home Indicator */}
-      <View style={styles.homeIndicator} />
     </View>
   );
 };
@@ -341,61 +395,123 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginTop: verticalScale(80),
-    marginBottom: verticalScale(80),
+    marginTop: verticalScale(50),
+    marginBottom: verticalScale(20),
     paddingHorizontal: moderateScale(30),
+    zIndex: 10,
   },
   title: {
     fontSize: scaleFont(48),
     fontWeight: 'bold',
     color: '#2D1B47',
-    marginBottom: moderateScale(10),
+    marginBottom: moderateScale(8),
     letterSpacing: 1,
-    textShadowColor: 'rgba(45, 27, 71, 0.3)',
-    textShadowOffset: { width: 0, height: moderateScale(2) },
-    textShadowRadius: moderateScale(4),
   },
   subtitle: {
-    fontSize: scaleFont(18),
+    fontSize: scaleFont(16),
     color: '#7A6B7A',
+    fontWeight: '400',
+  },
+  phoneFrameContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginTop: verticalScale(15),
+    marginBottom: 0,
+    zIndex: 1,
+  },
+  phoneBezeLWrapper: {
+    flex: 1,
+    width: moderateScale(280),
+    maxWidth: moderateScale(320),
+    position: 'relative',
+    marginBottom: moderateScale(-80),
+  },
+  notchContainer: {
+    position: 'absolute',
+    top: 0,
+    left: '50%',
+    transform: [{ translateX: moderateScale(-75) }],
+    zIndex: 10,
+  },
+  notch: {
+    width: moderateScale(150),
+    height: moderateScale(28),
+    backgroundColor: '#1C1C1E',
+    borderBottomLeftRadius: moderateScale(20),
+    borderBottomRightRadius: moderateScale(20),
+  },
+  phoneBorderContainer: {
+    flex: 1,
+    backgroundColor: '#1C1C1E',
+    borderTopLeftRadius: moderateScale(40),
+    borderTopRightRadius: moderateScale(40),
+    paddingTop: moderateScale(8),
+    paddingHorizontal: moderateScale(8),
+    paddingBottom: moderateScale(8),
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: moderateScale(10),
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: moderateScale(20),
+    elevation: 15,
+  },
+  phoneScreen: {
+    flex: 1,
+    backgroundColor: '#E6D5E1',
+    borderTopLeftRadius: moderateScale(32),
+    borderTopRightRadius: moderateScale(32),
+    borderBottomLeftRadius: moderateScale(32),
+    borderBottomRightRadius: moderateScale(32),
+    overflow: 'hidden',
+  },
+  dateTimeContainer: {
+    alignItems: 'center',
+    marginTop: verticalScale(40),
+    marginBottom: verticalScale(20),
+  },
+  dateText: {
+    fontSize: scaleFont(12),
+    color: '#B08BA5',
     fontWeight: '500',
+    marginBottom: moderateScale(4),
+  },
+  timeText: {
+    fontSize: scaleFont(48),
+    color: '#B08BA5',
+    fontWeight: '300',
+    letterSpacing: -1,
   },
   cardsContainer: {
-    paddingHorizontal: moderateScale(25),
-    marginBottom: verticalScale(100),
-    gap: moderateScale(15),
+    paddingHorizontal: moderateScale(16),
+    gap: moderateScale(12),
   },
   cardShadowContainer: {
     shadowColor: '#2D1B47',
     shadowOffset: {
       width: 0,
-      height: moderateScale(8),
+      height: moderateScale(4),
     },
     shadowOpacity: 0.15,
-    shadowRadius: moderateScale(15),
-    elevation: 10,
+    shadowRadius: moderateScale(8),
+    elevation: 6,
   },
   notificationCard: {
-    borderRadius: moderateScale(24),
+    height: moderateScale(65),
+    borderRadius: moderateScale(18),
     overflow: 'visible',
     position: 'relative',
   },
   cardGlowEffect: {
     position: 'absolute',
-    top: moderateScale(-5),
-    left: moderateScale(-5),
-    right: moderateScale(-5),
-    bottom: moderateScale(-5),
-    backgroundColor: 'rgba(237, 207, 201, 0.6)',
-    borderRadius: moderateScale(26),
+    top: moderateScale(-3),
+    left: moderateScale(-3),
+    right: moderateScale(-3),
+    bottom: moderateScale(-3),
+    backgroundColor: 'rgba(237, 207, 201, 0.4)',
+    borderRadius: moderateScale(21),
     zIndex: -2,
-    shadowColor: '#EDCFC9',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0.8,
-    shadowRadius: moderateScale(20),
   },
   cardBackground: {
     position: 'absolute',
@@ -404,190 +520,148 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#EDCFC9',
-    borderRadius: moderateScale(24),
-    borderWidth: 1.5,
-    borderColor: '#EDCFC9',
+    borderRadius: moderateScale(18),
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: moderateScale(14),
-    paddingHorizontal: moderateScale(18),
+    paddingVertical: moderateScale(10),
+    paddingHorizontal: moderateScale(14),
+    height: '100%',
     zIndex: 1,
   },
   iconContainer: {
     marginRight: moderateScale(12),
-    position: 'relative',
   },
   zenIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
+    width: moderateScale(44),
+    height: moderateScale(44),
     backgroundColor: '#4A7C59',
-    borderRadius: moderateScale(24),
+    borderRadius: moderateScale(22),
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#4A7C59',
-    shadowOffset: {
-      width: 0,
-      height: moderateScale(4),
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: moderateScale(8),
-    elevation: 6,
   },
   caccoonIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
+    width: moderateScale(44),
+    height: moderateScale(44),
     backgroundColor: '#8B7B8B',
-    borderRadius: moderateScale(24),
+    borderRadius: moderateScale(22),
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#8B7B8B',
-    shadowOffset: {
-      width: 0,
-      height: moderateScale(4),
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: moderateScale(8),
-    elevation: 6,
-  },
-  iconGlow: {
-    position: 'absolute',
-    top: moderateScale(-4),
-    left: moderateScale(-4),
-    right: moderateScale(-4),
-    bottom: moderateScale(-4),
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: moderateScale(28),
-    zIndex: -1,
   },
   omSymbol: {
-    fontSize: scaleFont(24),
+    fontSize: scaleFont(20),
     color: '#E8A87C',
     fontWeight: 'bold',
   },
   flowerSymbol: {
-    fontSize: scaleFont(20),
+    fontSize: scaleFont(18),
   },
   textContent: {
     flex: 1,
-    marginRight: moderateScale(10),
+    marginRight: moderateScale(12),
+    justifyContent: 'center',
   },
-  serviceName: {
-    fontSize: scaleFont(17),
-    fontWeight: '700',
-    color: '#2D1B47',
+  serviceNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: moderateScale(2),
   },
+  serviceName: {
+    fontSize: scaleFont(15),
+    fontWeight: '700',
+    color: '#2D1B47',
+  },
   strikethrough: {
-    fontSize: scaleFont(17),
+    fontSize: scaleFont(15),
     fontWeight: '700',
     color: '#2D1B47',
     textDecorationLine: 'line-through',
-    marginBottom: moderateScale(2),
+    textDecorationStyle: 'solid',
   },
   serviceMessage: {
-    fontSize: scaleFont(13),
+    fontSize: scaleFont(12),
     color: '#7A6B7A',
     fontWeight: '400',
   },
   timestamp: {
-    fontSize: scaleFont(13),
+    fontSize: scaleFont(11),
     color: '#7A6B7A',
-    fontWeight: '600',
+    fontWeight: '500',
   },
-  darkBarsContainer: {
-    position: 'absolute',
-    bottom: verticalScale(120),
-    left: 0,
-    right: 0,
-    height: moderateScale(50),
-  },
-  leftDarkBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: moderateScale(10),
-    height: '100%',
-    backgroundColor: '#2D1B47',
-    borderTopRightRadius: moderateScale(5),
-    borderBottomRightRadius: moderateScale(5),
-  },
-  rightDarkBar: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: moderateScale(10),
-    height: '100%',
-    backgroundColor: '#2D1B47',
-    borderTopLeftRadius: moderateScale(5),
-    borderBottomLeftRadius: moderateScale(5),
-  },
-  bottomShadeContainer: {
+  bottomArchContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: verticalScale(300),
+    height: verticalScale(250),
+    zIndex: 5,
+    overflow: 'hidden',
   },
-  bottomShade: {
-    flex: 1,
-    backgroundColor: 'rgba(210, 190, 240, 1)',
-    borderTopLeftRadius: moderateScale(100),
-    borderTopRightRadius: moderateScale(100),
+  archSvg: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+
   buttonsContainer: {
     position: 'absolute',
-    bottom: verticalScale(50),
+    bottom: verticalScale(40),
     alignItems: 'center',
     width: '100%',
-    gap: moderateScale(15),
+    gap: moderateScale(14),
+    zIndex: 10,
   },
   createAccountButton: {
-    width: moderateScale(216),
-    height: moderateScale(52),
+    width: moderateScale(200),
+    height: moderateScale(50),
     backgroundColor: '#D96073',
-    borderRadius: moderateScale(16),
+    borderRadius: moderateScale(14),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#BA7F88',
-    shadowOffset: {
-      width: 0,
-      height: moderateScale(8),
-    },
-    shadowOpacity: 0.35,
-    shadowRadius: moderateScale(15),
-    elevation: 10,
-  },
-  createAccountText: {
-    color: '#FFFFFF',
-    fontSize: scaleFont(18),
-    fontWeight: '700',
-  },
-  loginButton: {
-    width: moderateScale(216),
-    height: moderateScale(52),
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: moderateScale(16),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    shadowColor: '#000',
+    shadowColor: '#D96073',
     shadowOffset: {
       width: 0,
       height: moderateScale(6),
     },
-    shadowOpacity: 0.15,
-    shadowRadius: moderateScale(10),
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: moderateScale(12),
+    elevation: 8,
+  },
+  createAccountText: {
+    color: '#FFFFFF',
+    fontSize: scaleFont(17),
+    fontWeight: '700',
+  },
+  loginButton: {
+    width: moderateScale(200),
+    height: moderateScale(50),
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: moderateScale(14),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: moderateScale(4),
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: moderateScale(8),
+    elevation: 4,
   },
   loginText: {
     color: '#7A6B7A',
-    fontSize: scaleFont(18),
+    fontSize: scaleFont(17),
     fontWeight: '600',
   },
-  
 });
 
 export default options;

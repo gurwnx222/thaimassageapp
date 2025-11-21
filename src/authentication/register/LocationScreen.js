@@ -357,6 +357,7 @@ const LocationScreen = ({ navigation }) => {
             disabled={loading || fetchingLocation}
           >
             <View style={styles.backButtonContainer}>
+              {/* Arrow with background circle */}
               <View style={styles.arrowContainer}>
                 <Text style={styles.backArrow}>‹</Text>
               </View>
@@ -467,28 +468,29 @@ const styles = StyleSheet.create({
     paddingBottom: verticalScale(40),
   },
   header: {
-    marginTop: verticalScale(80),
+    marginTop: verticalScale(52),
     marginBottom: verticalScale(40),
+    paddingHorizontal: moderateScale(32),
   },
   backButton: {
-    marginLeft: moderateScale(20),
+    // Main back button container
   },
   backButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   arrowContainer: {
-    width: moderateScale(40),
-    height: moderateScale(40),
+    width: moderateScale(45),
+    height: moderateScale(45),
     backgroundColor: 'rgba(237, 207, 201, 0.8)',
-    borderRadius: moderateScale(20),
+    borderRadius: moderateScale(8),
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: moderateScale(12),
   },
   backArrow: {
-    fontSize: scaleFont(24),
-    color: '#5D4A5D',
+    fontSize: scaleFont(28),
+    color: '#D96073',
     fontWeight: 'bold',
   },
   backText: {

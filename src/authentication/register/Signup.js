@@ -430,12 +430,18 @@ const Signup = ({ navigation }) => {
         {/* Header with Back Button */}
         <View style={styles.header}>
           <TouchableOpacity 
-            style={styles.backButtonContainer}
+            style={styles.backButton}
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
             disabled={loading || googleLoading}
           >
-            <Text style={styles.backArrow}>‹</Text>
+            <View style={styles.backButtonContainer}>
+              {/* Arrow with background circle */}
+              <View style={styles.arrowContainer}>
+                <Text style={styles.backArrow}>‹</Text>
+              </View>
+              <Text style={styles.backText}>{t('signup.back')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -558,18 +564,32 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(40),
     paddingHorizontal: moderateScale(32),
   },
+  backButton: {
+    // Main back button container
+  },
   backButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  arrowContainer: {
     width: moderateScale(45),
     height: moderateScale(45),
     backgroundColor: 'rgba(237, 207, 201, 0.8)',
     borderRadius: moderateScale(8),
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: moderateScale(12),
   },
   backArrow: {
     fontSize: scaleFont(28),
-    color: '#5D4A5D',
+    color: '#D96073',
     fontWeight: 'bold',
+    
+  },
+  backText: {
+    fontSize: scaleFont(16),
+    color: '#5D4A5D',
+    fontWeight: '600',
   },
   titleSection: {
     paddingHorizontal: moderateScale(30),

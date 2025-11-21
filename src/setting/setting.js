@@ -744,12 +744,12 @@ const Setting = ({ navigation }) => {
 
       <View style={styles.mainContainer}>
         <LinearGradient
-          colors={['#D4A5AC', '#E8C4D4']}
+          colors={['#E8C5CD', '#F5D9E0']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.topHalfBackground}
         >
-          <Text style={styles.headerTitle}>{t('profile.header')}</Text>
+          <Text style={styles.headerTitle}>Profile</Text>
         </LinearGradient>
 
         <View style={styles.profileCardAbsolute}>
@@ -769,7 +769,10 @@ const Setting = ({ navigation }) => {
                         resizeMode="cover"
                       />
                     ) : (
-                      <Text style={styles.avatarEmoji}>😊</Text>
+                      <Image
+  source={require('../assets/avtar.png')} // local image
+  style={styles.avatarImage}
+/>
                     )}
                   </View>
                   <TouchableOpacity 
@@ -955,32 +958,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDE2E0',
   },
   
+  // PIXEL-PERFECT HEADER STYLES
   mainContainer: {
     position: 'relative',
     width: '100%',
-    height: isTablet ? verticalScale(320) : verticalScale(280),
+    
+    height: isTablet ? verticalScale(400) : verticalScale(320),
+  
   },
 
   topHalfBackground: {
     width: '100%',
     height: '55%',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' 
-      ? moderateScale(16) 
-      : moderateScale(12),
+    justifyContent: 'center',
+    paddingTop: 0,
   },
+
   headerTitle: {
-    fontSize: scaleFont(32),
+    fontSize: scaleFont(28),
     fontWeight: '700',
-    color: '#2D1B47',
-    letterSpacing: 0.5,
-    marginTop: isTablet 
-      ? moderateScale(30) 
-      : isSmallDevice 
-        ? moderateScale(15)
-        : moderateScale(20),
+    color: '#000000',
+    letterSpacing: 0.3,
     textAlign: 'center',
-    paddingHorizontal: HORIZONTAL_PADDING,
+    paddingBottom: moderateScale(8),
+    marginTop: Platform.OS === 'ios' ? moderateScale(8) : moderateScale(4),
   },
 
   bottomHalfBackground: {
@@ -991,13 +993,13 @@ const styles = StyleSheet.create({
 
   profileCardAbsolute: {
     position: 'absolute',
-    top: '55%',
+    top: '50%',
     left: 0,
     right: 0,
     transform: [{ 
       translateY: isTablet 
-        ? moderateScale(-90) 
-        : moderateScale(-70) 
+        ? moderateScale(-70) 
+        : moderateScale(-60) 
     }],
     alignItems: 'center',
     zIndex: 100,
@@ -1017,79 +1019,110 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   profileCardShadow: {
-    position: 'absolute',
-    width: PROFILE_CARD_WIDTH,
-    height: PROFILE_CARD_HEIGHT,
-    backgroundColor: 'transparent',
-    borderRadius: moderateScale(16),
-    top: 0,
-    left: 0,
-  },
-  profileCard: {
-    width: PROFILE_CARD_WIDTH,
-    height: PROFILE_CARD_HEIGHT,
-    backgroundColor: 'transparent',
-    borderRadius: moderateScale(16),
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: moderateScale(12),
-    paddingHorizontal: moderateScale(8),
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
+  position: 'absolute',
+  width: PROFILE_CARD_WIDTH,
+  height: PROFILE_CARD_HEIGHT,
+  borderRadius: moderateScale(20),
+  top: moderateScale(4),
+  left: moderateScale(2),
+},
+
+profileCard: {
+  width: PROFILE_CARD_WIDTH,
+  height: PROFILE_CARD_HEIGHT,
+  backgroundColor: 'transparent',    // transparent background
+  borderRadius: moderateScale(20),
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: moderateScale(20),
+  paddingHorizontal: moderateScale(16),
+  borderWidth: 2,                    // set the border width
+  borderColor: '#FFF6EF',              // white border
+  shadowOffset: { width: 0, height: moderateScale(4) },
+  shadowOpacity: 0.1,
+  shadowRadius: moderateScale(8),
+  elevation: 0,
+},
+
   avatarWrap: {
-    marginBottom: moderateScale(8),
+    marginBottom: moderateScale(12),
   },
+
   avatarInner: {
     position: 'relative',
   },
+
   avatarCircle: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#2D1B47',
+    borderRadius: AVATAR_SIZE / 3,
+    backgroundColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: moderateScale(2) },
+    shadowOpacity: 0.15,
+    shadowRadius: moderateScale(4),
+    elevation: 4,
   },
+
   avatarImage: {
     width: '100%',
     height: '100%',
     borderRadius: AVATAR_SIZE / 2,
   },
+
   avatarEmoji: {
-    fontSize: scaleFont(40),
-  },
-  editBadge: {
-    position: 'absolute',
-    right: moderateScale(-4),
-    bottom: 0,
-    backgroundColor: '#C97B84',
-    borderRadius: moderateScale(12),
-    padding: moderateScale(6),
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  profileName: {
-    fontSize: scaleFont(14),
-    color: '#7A6B7A',
-    fontWeight: '500',
-    maxWidth: PROFILE_CARD_WIDTH - moderateScale(24),
-    textAlign: 'center',
+      width: 40,      // set width as needed
+    height: 40,     // set height as needed
+    borderRadius: 20,
   },
 
+  editBadge: {
+    position: 'absolute',
+    right: moderateScale(-2),
+    bottom: moderateScale(2),
+    backgroundColor: '#C97B84',
+    borderRadius: moderateScale(16),
+    width: moderateScale(32),
+    height: moderateScale(32),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: moderateScale(2) },
+    shadowOpacity: 0.2,
+    shadowRadius: moderateScale(3),
+    elevation: 5,
+  },
+
+  profileName: {
+    fontSize: scaleFont(16),
+    color: '#000000',
+    fontWeight: '600',
+    maxWidth: PROFILE_CARD_WIDTH - moderateScale(32),
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+
+  // SECTION STYLES
   section: {
     width: MAX_CONTENT_WIDTH,
     marginBottom: verticalScale(25),
     paddingHorizontal: isTablet ? 0 : HORIZONTAL_PADDING,
   },
+
   sectionTitle: {
     fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '600',
     marginBottom: moderateScale(12),
   },
+
   row: {
     height: ROW_HEIGHT,
     backgroundColor: '#FEC9BE',
@@ -1105,6 +1138,7 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(4),
     elevation: 2,
   },
+
   rowText: {
     fontSize: scaleFont(16),
     color: '#2D1B47',
@@ -1113,6 +1147,7 @@ const styles = StyleSheet.create({
     marginRight: moderateScale(8),
   },
 
+  // LOGOUT BUTTON
   logoutBtn: {
     width: MAX_CONTENT_WIDTH,
     backgroundColor: '#FFF6EF',
@@ -1129,6 +1164,7 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(8),
     elevation: 4,
   },
+
   logoutText: {
     marginLeft: moderateScale(10),
     color: '#C97B84',
@@ -1136,6 +1172,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  // MODAL STYLES
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1143,6 +1180,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: moderateScale(20),
   },
+
   modalContent: {
     width: '100%',
     maxWidth: isTablet ? moderateScale(480) : moderateScale(380),
@@ -1155,12 +1193,14 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(12),
     elevation: 8,
   },
+
   modalTitle: {
     fontSize: scaleFont(20),
     fontWeight: '600',
     color: '#2D1B47',
     marginBottom: moderateScale(20),
   },
+
   input: {
     backgroundColor: '#F5DDD8',
     borderRadius: moderateScale(12),
@@ -1174,10 +1214,11 @@ const styles = StyleSheet.create({
     minHeight: moderateScale(50),
   },
   
-  // Location Modal Styles
+  // LOCATION MODAL STYLES
   locationModalContent: {
     marginBottom: moderateScale(24),
   },
+
   locationDisplay: {
     backgroundColor: '#F5DDD8',
     borderRadius: moderateScale(12),
@@ -1186,34 +1227,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#4CAF50',
   },
+
   locationLabel: {
     fontSize: scaleFont(14),
     fontWeight: '600',
     color: '#2D1B47',
     marginBottom: moderateScale(8),
   },
+
   locationCity: {
     fontSize: scaleFont(18),
     fontWeight: '700',
     color: '#2D1B47',
     marginBottom: moderateScale(4),
   },
+
   locationCountry: {
     fontSize: scaleFont(14),
     color: '#7A6B7A',
     marginBottom: moderateScale(8),
   },
+
   locationCoords: {
     fontSize: scaleFont(14),
     color: '#2D1B47',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginBottom: moderateScale(4),
   },
+
   locationAccuracy: {
     fontSize: scaleFont(12),
     color: '#7A6B7A',
     marginTop: moderateScale(4),
   },
+
   noLocationText: {
     fontSize: scaleFont(14),
     color: '#7A6B7A',
@@ -1221,6 +1268,7 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(16),
     padding: moderateScale(12),
   },
+
   getLocationButton: {
     backgroundColor: '#8B7B8B',
     borderRadius: moderateScale(12),
@@ -1230,26 +1278,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: moderateScale(50),
   },
+
   getLocationButtonDisabled: {
     backgroundColor: 'rgba(139, 123, 139, 0.6)',
   },
+
   locationIcon: {
     fontSize: scaleFont(18),
     marginRight: moderateScale(8),
   },
+
   getLocationButtonText: {
     color: '#FFFFFF',
     fontSize: scaleFont(16),
     fontWeight: '600',
   },
+
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
+  // GENDER OPTIONS
   optionsContainer: {
     marginBottom: moderateScale(24),
   },
+
   option: {
     backgroundColor: '#F5DDD8',
     borderRadius: moderateScale(12),
@@ -1263,16 +1317,19 @@ const styles = StyleSheet.create({
     borderColor: '#E6C4C0',
     minHeight: moderateScale(50),
   },
+
   optionSelected: {
     borderColor: '#C97B84',
     borderWidth: 2,
     backgroundColor: '#F5E5E1',
   },
+
   optionText: {
     fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '500',
   },
+
   radioButton: {
     width: moderateScale(24),
     height: moderateScale(24),
@@ -1283,16 +1340,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
+
   radioButtonInner: {
     width: moderateScale(14),
     height: moderateScale(14),
     borderRadius: moderateScale(7),
     backgroundColor: '#C97B84',
   },
+
+  // MODAL BUTTONS
   modalButtons: {
     flexDirection: 'row',
     gap: moderateScale(12),
   },
+
   cancelButton: {
     flex: 1,
     backgroundColor: '#E8D4D0',
@@ -1302,11 +1363,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: moderateScale(48),
   },
+
   cancelButtonText: {
     fontSize: scaleFont(16),
     fontWeight: '600',
     color: '#7A6B7A',
   },
+
   doneButton: {
     flex: 1,
     backgroundColor: '#C97B84',
@@ -1316,15 +1379,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: moderateScale(48),
   },
+
   doneButtonDisabled: {
     backgroundColor: 'rgba(201, 123, 132, 0.5)',
   },
+
   doneButtonText: {
     fontSize: scaleFont(16),
     fontWeight: '600',
     color: '#FFFFFF',
   },
 
+  // LOGOUT MODAL
   logoutModalContent: {
     width: '100%',
     maxWidth: isTablet ? moderateScale(420) : moderateScale(340),
@@ -1338,6 +1404,7 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(16),
     elevation: 10,
   },
+
   logoutIconContainer: {
     width: moderateScale(80),
     height: moderateScale(80),
@@ -1352,6 +1419,7 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(8),
     elevation: 4,
   },
+
   logoutModalTitle: {
     fontSize: scaleFont(24),
     fontWeight: '700',
@@ -1359,6 +1427,7 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(12),
     textAlign: 'center',
   },
+
   logoutModalMessage: {
     fontSize: scaleFont(16),
     color: '#7A6B7A',
@@ -1367,6 +1436,7 @@ const styles = StyleSheet.create({
     lineHeight: scaleFont(22),
     paddingHorizontal: moderateScale(10),
   },
+
   logoutConfirmButton: {
     flex: 1,
     backgroundColor: '#C97B84',

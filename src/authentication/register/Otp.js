@@ -8,10 +8,22 @@ import {
   StatusBar,
   ScrollView,
   Dimensions,
+  PixelRatio,
 } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Responsive scaling functions
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+const scaleFont = (size) => {
+  const scaledSize = (SCREEN_WIDTH / 375) * size;
+  return Math.round(PixelRatio.roundToNearestPixel(scaledSize));
+};
+
+const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - moderateScale(70), moderateScale(338));
 
 const Otp = ({ navigation }) => {
   const { t } = useLanguage();
@@ -127,76 +139,77 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: verticalScale(40),
   },
   header: {
-    marginTop: 80,
-    marginBottom: 40,
+    marginTop: verticalScale(52),
+    marginBottom: verticalScale(40),
+    paddingHorizontal: moderateScale(32),
   },
   backButton: {
-    marginLeft: 20,
+    // Main back button container
   },
   backButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   arrowContainer: {
-    width: 40,
-    height: 40,
+    width: moderateScale(45),
+    height: moderateScale(45),
     backgroundColor: 'rgba(237, 207, 201, 0.8)',
-    borderRadius: 20,
+    borderRadius: moderateScale(8),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: moderateScale(12),
   },
   backArrow: {
-    fontSize: 24,
-    color: '#5D4A5D',
+    fontSize: scaleFont(28),
+    color: '#D96073',
     fontWeight: 'bold',
   },
   backText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#5D4A5D',
     fontWeight: '600',
   },
   titleSection: {
-    paddingHorizontal: 30,
-    marginBottom: 80,
+    paddingHorizontal: moderateScale(30),
+    marginBottom: verticalScale(80),
   },
   title: {
-    fontSize: 32,
+    fontSize: scaleFont(32),
     fontWeight: 'bold',
     color: '#2D1B47',
-    marginBottom: 12,
+    marginBottom: moderateScale(12),
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     color: '#7A6B7A',
-    lineHeight: 22,
+    lineHeight: scaleFont(22),
     fontWeight: '400',
   },
   otpSection: {
     alignItems: 'center',
-    marginBottom: 120,
-    paddingHorizontal: 30,
+    marginBottom: verticalScale(120),
+    paddingHorizontal: moderateScale(30),
   },
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    maxWidth: 280,
+    maxWidth: moderateScale(280),
   },
   otpInputContainer: {
     position: 'relative',
     alignItems: 'center',
   },
   otpInput: {
-    width: 60,
-    height: 60,
+    width: moderateScale(60),
+    height: moderateScale(60),
     backgroundColor: 'rgba(237, 207, 201, 0.6)',
-    borderRadius: 12,
-    fontSize: 24,
+    borderRadius: moderateScale(12),
+    fontSize: scaleFont(24),
     fontWeight: 'bold',
     color: '#2D1B47',
     borderWidth: 2,
@@ -212,36 +225,35 @@ const styles = StyleSheet.create({
   },
   otpUnderline: {
     position: 'absolute',
-    bottom: 15,
-    width: 20,
-    height: 2,
+    bottom: moderateScale(15),
+    width: moderateScale(20),
+    height: moderateScale(2),
     backgroundColor: '#8B7B8B',
-    borderRadius: 1,
+    borderRadius: moderateScale(1),
   },
   buttonSection: {
     alignItems: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: moderateScale(30),
   },
   verifyButton: {
-    width: width - 60,
-    maxWidth: 338,
-    height: 54,
+    width: BUTTON_WIDTH,
+    height: moderateScale(54),
     backgroundColor: '#D96073',
-    borderRadius: 16,
+    borderRadius: moderateScale(16),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#262628',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: moderateScale(4),
     },
     shadowOpacity: 0.2,
-    shadowRadius: 12,
+    shadowRadius: moderateScale(12),
     elevation: 8,
   },
   verifyButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontWeight: '700',
   },
 });
