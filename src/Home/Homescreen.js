@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -63,90 +62,37 @@ const Homescreen = ({ navigation }) => {
   const notificationButtonRef = useRef(null);
   const cardRef = useRef(null);
 
-  // Define tour steps with swipe demo
-  // Define tour steps - SIMPLIFIED
-const tourSteps = [
-  {
-    title: 'Welcome!',
-    description: 'Let us show you how to find the perfect massage studio.',
-    icon: 'hand-wave',
-    tooltipPosition: {
-      top: verticalScale(150),
-      left: moderateScale(20),
-      right: moderateScale(20),
-    },
-  },
-  {
-    title: 'Swipe Cards',
-    description: 'Swipe right to book or swipe left to skip and see the next studio.',
-    icon: 'gesture-swipe',
-    targetPosition: cardLayout,
-    showSwipeDemo: true,
-    tooltipPosition: {
-      top: verticalScale(100),
-      left: moderateScale(20),
-      right: moderateScale(20),
-    },
-    arrowDirection: 'bottom',
-  },
-  {
-    title: 'Notifications',
-    description: 'Check your booking confirmations here.',
-    icon: 'bell',
-    targetPosition: notificationButtonLayout,
-    tooltipPosition: {
-      top: notificationButtonLayout ? notificationButtonLayout.top + moderateScale(70) : verticalScale(150),
-      left: moderateScale(20),
-      right: moderateScale(20),
-    },
-    arrowDirection: 'top',
-  },
-  {
-    title: 'Chat',
-    description: 'Message parlors directly to ask questions.',
-    icon: 'chat',
-    tooltipPosition: {
-      bottom: moderateScale(160),
-      left: moderateScale(20),
-      right: moderateScale(20),
-    },
-  },
-  {
-    title: 'Profile',
-    description: 'Access your bookings and account settings.',
-    icon: 'account',
-    tooltipPosition: {
-      bottom: moderateScale(160),
-      left: moderateScale(20),
-      right: moderateScale(20),
-    },
-  },
-];
-  useEffect(() => {
-    fetchUserName();
-    setTimeout(() => {
-      measureNotificationButton();
-      measureCard();
-    }, 500);
-  }, []);
+  // IMPORTANT: Studios come from backend API in your production app.
+  // For now, we initialize state with static data so UI and behaviour remain the same.
+  // To integrate real API:
+  // 1) Uncomment the fetchStudios function below and replace 'https://api.example.com/studios' with your endpoint.
+  // 2) Optionally, use axios (import axios at the top) and call axios.get(endpoint).
+  // 3) call fetchStudios() inside the useEffect below (the commented example shows where).
+  //
+  // Example using fetch (commented):
+  // const fetchStudios = async () => {
+  //   try {
+  //     const response = await fetch('https://api.example.com/studios');
+  //     const data = await response.json();
+  //     // Ensure data shape matches: [{ id, name, price, rating, location, services }]
+  //     setStudios(data);
+  //   } catch (err) {
+  //     console.error('Error fetching studios:', err);
+  //   }
+  // };
+  //
+  // Example using axios (commented):
+  // import axios from 'axios'; // add import at the top if using axios
+  // const fetchStudios = async () => {
+  //   try {
+  //     const { data } = await axios.get('https://api.example.com/studios');
+  //     setStudios(data);
+  //   } catch (err) {
+  //     console.error('Error fetching studios with axios:', err);
+  //   }
+  // };
 
-  useEffect(() => {
-    const translateName = async () => {
-      if (userName && userName !== 'User') {
-        if (currentLanguage === 'th') {
-          const translated = await translateDynamic(userName);
-          setTranslatedUserName(translated);
-        } else {
-          setTranslatedUserName(userName);
-        }
-      } else {
-        setTranslatedUserName(userName);
-      }
-    };
-    translateName();
-  }, [userName, currentLanguage]);
-
-  const studios = [
+  const [studios, setStudios] = useState([
     { 
       id: 1, 
       name: 'Zen Thai Studio', 
@@ -171,7 +117,94 @@ const tourSteps = [
       location: 'Silom, Bangkok', 
       services: ['Swedish massage', 'Reflexology', 'Sports massage'] 
     },
+  ]);
+
+  // Define tour steps with swipe demo
+  // Define tour steps - SIMPLIFIED
+  const tourSteps = [
+    {
+      title: 'Welcome!',
+      description: 'Let us show you how to find the perfect massage studio.',
+      icon: 'hand-wave',
+      tooltipPosition: {
+        top: verticalScale(150),
+        left: moderateScale(20),
+        right: moderateScale(20),
+      },
+    },
+    {
+      title: 'Swipe Cards',
+      description: 'Swipe right to book or swipe left to skip and see the next studio.',
+      icon: 'gesture-swipe',
+      targetPosition: cardLayout,
+      showSwipeDemo: true,
+      tooltipPosition: {
+        top: verticalScale(100),
+        left: moderateScale(20),
+        right: moderateScale(20),
+      },
+      arrowDirection: 'bottom',
+    },
+    {
+      title: 'Notifications',
+      description: 'Check your booking confirmations here.',
+      icon: 'bell',
+      targetPosition: notificationButtonLayout,
+      tooltipPosition: {
+        top: notificationButtonLayout ? notificationButtonLayout.top + moderateScale(70) : verticalScale(150),
+        left: moderateScale(20),
+        right: moderateScale(20),
+      },
+      arrowDirection: 'top',
+    },
+    {
+      title: 'Chat',
+      description: 'Message parlors directly to ask questions.',
+      icon: 'chat',
+      tooltipPosition: {
+        bottom: moderateScale(160),
+        left: moderateScale(20),
+        right: moderateScale(20),
+      },
+    },
+    {
+      title: 'Profile',
+      description: 'Access your bookings and account settings.',
+      icon: 'account',
+      tooltipPosition: {
+        bottom: moderateScale(160),
+        left: moderateScale(20),
+        right: moderateScale(20),
+      },
+    },
   ];
+
+  useEffect(() => {
+    fetchUserName();
+    setTimeout(() => {
+      measureNotificationButton();
+      measureCard();
+    }, 500);
+
+    // If you want to fetch live data, call fetchStudios() here (commented out).
+    // fetchStudios();
+  }, []);
+
+  useEffect(() => {
+    const translateName = async () => {
+      if (userName && userName !== 'User') {
+        if (currentLanguage === 'th') {
+          const translated = await translateDynamic(userName);
+          setTranslatedUserName(translated);
+        } else {
+          setTranslatedUserName(userName);
+        }
+      } else {
+        setTranslatedUserName(userName);
+      }
+    };
+    translateName();
+  }, [userName, currentLanguage]);
 
   useEffect(() => {
     const translateStudios = async () => {
@@ -192,7 +225,7 @@ const tourSteps = [
       }
     };
     translateStudios();
-  }, [currentLanguage]);
+  }, [currentLanguage, studios, translateDynamic]);
 
   const fetchUserName = async () => {
     try {
@@ -288,6 +321,7 @@ const tourSteps = [
   
   const nextCard = () => { 
     const studiosToUse = translatedStudios.length > 0 ? translatedStudios : studios;
+    if (studiosToUse.length === 0) return;
     setCurrentIndex((p) => (p + 1) % studiosToUse.length); 
     position.setValue({ x: 0, y: 0 }); 
   };

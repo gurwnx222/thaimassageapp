@@ -32,15 +32,31 @@ import Geolocation from 'react-native-geolocation-service';
 import { reverseGeocode } from '../context/geocodingService';
 import { useLanguage } from '../context/LanguageContext';
 
+// If you prefer axios, uncomment the next line and the axios usage example below:
+// import axios from 'axios';
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Device type detection
+// --------- CONFIG: Toggle API-based location here ----------
+const USE_LOCATION_API = false; // set to true to get location via API instead of device GPS
+const LOCATION_API_URL = 'https://api.example.com/user/location'; // <-- change to your API endpoint
+// Example expected API response shape:
+// {
+//   "latitude": 13.736717,
+//   "longitude": 100.523186,
+//   "accuracy": 30,
+//   "city": "Bangkok",
+//   "country": "Thailand",
+//   "fullAddress": "Some formatted address string"
+// }
+// ----------------------------------------------------------
+
+/* Device type detection and responsive helpers (unchanged) */
 const isSmallDevice = SCREEN_WIDTH < 375;
 const isMediumDevice = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
 const isLargeDevice = SCREEN_WIDTH >= 414;
 const isTablet = SCREEN_WIDTH >= 768;
 
-// Responsive scaling functions with device-specific adjustments
 const scale = (size) => {
   const baseWidth = isTablet ? 768 : 375;
   return (SCREEN_WIDTH / baseWidth) * size;
@@ -64,7 +80,6 @@ const scaleFont = (size) => {
   return Math.round(PixelRatio.roundToNearestPixel(finalSize));
 };
 
-// Responsive dimensions with device-specific values
 const HORIZONTAL_PADDING = isTablet 
   ? moderateScale(40) 
   : isSmallDevice 
@@ -95,32 +110,28 @@ const PROFILE_CARD_HEIGHT = isTablet
   ? verticalScale(180) 
   : verticalScale(140);
 
+/* Small reusable components (unchanged) */
 const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, fieldType = 'text' }) => {
   const [translatedValue, setTranslatedValue] = useState(label);
   const { currentLanguage, translateDynamic } = useLanguage();
 
   useEffect(() => {
     const loadTranslation = async () => {
-      // If no value, show label
       if (!value || (typeof value === 'object' && Object.keys(value).length === 0)) {
         setTranslatedValue(label);
         return;
       }
 
       try {
-        // Handle location object with coordinates and city name
         if (fieldType === 'location') {
           if (typeof value === 'object' && value !== null && 'latitude' in value && 'longitude' in value) {
-            // If city name exists, show it with emoji
             if (value.city) {
               setTranslatedValue(`📍 ${value.city}`);
             } else {
-              // Fallback to coordinates if no city name
               const locationText = `${Number(value.latitude).toFixed(4)}°, ${Number(value.longitude).toFixed(4)}°`;
               setTranslatedValue(locationText);
             }
           } else if (typeof value === 'string') {
-            // Old format: string location
             if (currentLanguage === 'th') {
               const translated = await translateDynamic(value);
               setTranslatedValue(translated);
@@ -133,19 +144,16 @@ const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, f
           return;
         }
 
-        // Handle gender values
         if (value === 'Male' || value === 'Female') {
           setTranslatedValue(t(`genderValues.${value}`));
           return;
         }
 
-        // Handle numeric values
         if (isNumeric) {
           setTranslatedValue(formatText(value));
           return;
         }
 
-        // Handle name field
         if (fieldType === 'name') {
           if (currentLanguage === 'th') {
             const translated = await translateDynamic(value);
@@ -156,7 +164,6 @@ const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, f
           return;
         }
 
-        // Default: convert to string safely
         setTranslatedValue(String(value));
       } catch (error) {
         console.error('Error translating value:', error);
@@ -184,6 +191,7 @@ const LanguageOptionRow = ({ label, isSelected, onPress }) => (
   </TouchableOpacity>
 );
 
+/* Main component */
 const Setting = ({ navigation }) => {
   const { currentLanguage, changeLanguage, t, formatNum, formatText, translateDynamic } = useLanguage();
   const [userData, setUserData] = useState(null);
@@ -260,6 +268,7 @@ const Setting = ({ navigation }) => {
     }
   };
 
+  /* Image picker and upload (unchanged) */
   const handleImagePicker = async () => {
     const options = {
       mediaType: 'photo',
@@ -330,7 +339,7 @@ const Setting = ({ navigation }) => {
     }
   };
 
-  // Request location permission
+  // Request location permission (unchanged)
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
       try {
@@ -356,7 +365,6 @@ const Setting = ({ navigation }) => {
       }
     }
 
-    // Android
     try {
       const alreadyGranted = await PermissionsAndroid.check(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
@@ -395,9 +403,86 @@ const Setting = ({ navigation }) => {
     }
   };
 
-  // Get user's current GPS location with reverse geocoding
+  /* New: fetch location from external API (used when USE_LOCATION_API = true)
+     The API should return an object with latitude, longitude, city, country, fullAddress, accuracy.
+     Example usage shown below (fetch or axios). */
+  const fetchLocationFromApi = async () => {
+    setFetchingLocation(true);
+    try {
+      // Example using fetch:
+      const res = await fetch(LOCATION_API_URL, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          // Add auth header if required:
+          // 'Authorization': `Bearer ${YOUR_AUTH_TOKEN}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`API responded with status ${res.status}`);
+      }
+
+      const json = await res.json();
+
+      // Validate expected fields
+      if (!json || typeof json.latitude !== 'number' || typeof json.longitude !== 'number') {
+        throw new Error('Invalid location response from API');
+      }
+
+      const apiLocation = {
+        latitude: json.latitude,
+        longitude: json.longitude,
+        accuracy: json.accuracy || 50,
+        city: json.city || '',
+        country: json.country || '',
+        fullAddress: json.fullAddress || json.address || '',
+      };
+
+      setTempLocation(apiLocation);
+
+      if (apiLocation.city) {
+        Alert.alert('✅ Location Loaded', `📍 ${apiLocation.city}, ${apiLocation.country}`);
+      } else {
+        Alert.alert('✅ Location Loaded', `Lat: ${apiLocation.latitude.toFixed(6)}\nLong: ${apiLocation.longitude.toFixed(6)}`);
+      }
+
+      console.log('Location fetched from API:', apiLocation);
+    } catch (error) {
+      console.error('Error fetching location from API:', error);
+      Alert.alert('Location Error', 'Unable to fetch location from server. Please try again.');
+    } finally {
+      setFetchingLocation(false);
+    }
+
+    // // Example using axios (uncomment if you prefer axios):
+    // try {
+    //   setFetchingLocation(true);
+    //   const { data } = await axios.get(LOCATION_API_URL, {
+    //     headers: {
+    //       'Accept': 'application/json',
+    //       'Content-Type': 'application/json',
+    //       // 'Authorization': `Bearer ${YOUR_AUTH_TOKEN}`,
+    //     },
+    //   });
+    //   // same validation as above...
+    // } catch (err) {
+    //   // handle
+    // } finally {
+    //   setFetchingLocation(false);
+    // }
+  };
+
+  // Get user's current GPS location or fall back to the API depending on config
   const getUserLocation = async () => {
     setFetchingLocation(true);
+
+    // If configured to use API, call it and skip device permissions
+    if (USE_LOCATION_API) {
+      await fetchLocationFromApi();
+      return;
+    }
 
     try {
       const hasPermission = await requestLocationPermission();
@@ -413,7 +498,7 @@ const Setting = ({ navigation }) => {
           
           console.log('🔍 Fetching location name from coordinates...');
           
-          // Get city name from coordinates
+          // Get city name from coordinates (reverse geocode)
           const geocodeResult = await reverseGeocode(latitude, longitude);
           
           if (geocodeResult) {
@@ -489,7 +574,6 @@ const Setting = ({ navigation }) => {
     setModalType(type);
     
     if (type === 'location') {
-      // For location, check if it's an object with coordinates
       if (typeof currentValue === 'object' && currentValue?.latitude) {
         setTempLocation(currentValue);
         setModalValue('');
@@ -678,6 +762,12 @@ const Setting = ({ navigation }) => {
               </>
             )}
           </TouchableOpacity>
+          {/* Helpful note */}
+          {USE_LOCATION_API && (
+            <Text style={{ marginTop: moderateScale(8), color: '#7A6B7A', fontSize: scaleFont(12) }}>
+              Note: Location will be loaded from server API (USE_LOCATION_API = true).
+            </Text>
+          )}
         </View>
       );
     }
@@ -770,9 +860,9 @@ const Setting = ({ navigation }) => {
                       />
                     ) : (
                       <Image
-  source={require('../assets/avtar.png')} // local image
-  style={styles.avatarImage}
-/>
+                        source={require('../assets/avtar.png')} // local image
+                        style={styles.avatarImage}
+                      />
                     )}
                   </View>
                   <TouchableOpacity 
@@ -946,6 +1036,7 @@ const Setting = ({ navigation }) => {
   );
 };
 
+/* Styles (unchanged) */
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -1032,14 +1123,14 @@ const styles = StyleSheet.create({
 profileCard: {
   width: PROFILE_CARD_WIDTH,
   height: PROFILE_CARD_HEIGHT,
-  backgroundColor: 'transparent',    // transparent background
+  backgroundColor: 'transparent',
   borderRadius: moderateScale(20),
   alignItems: 'center',
   justifyContent: 'center',
   paddingVertical: moderateScale(20),
   paddingHorizontal: moderateScale(16),
-  borderWidth: 2,                    // set the border width
-  borderColor: '#FFF6EF',              // white border
+  borderWidth: 2,
+  borderColor: '#FFF6EF',
   shadowOffset: { width: 0, height: moderateScale(4) },
   shadowOpacity: 0.1,
   shadowRadius: moderateScale(8),
@@ -1076,8 +1167,8 @@ profileCard: {
   },
 
   avatarEmoji: {
-      width: 40,      // set width as needed
-    height: 40,     // set height as needed
+      width: 40,
+    height: 40,
     borderRadius: 20,
   },
 
@@ -1147,7 +1238,6 @@ profileCard: {
     marginRight: moderateScale(8),
   },
 
-  // LOGOUT BUTTON
   logoutBtn: {
     width: MAX_CONTENT_WIDTH,
     backgroundColor: '#FFF6EF',
@@ -1172,7 +1262,6 @@ profileCard: {
     fontWeight: '600',
   },
 
-  // MODAL STYLES
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1214,7 +1303,6 @@ profileCard: {
     minHeight: moderateScale(50),
   },
   
-  // LOCATION MODAL STYLES
   locationModalContent: {
     marginBottom: moderateScale(24),
   },
@@ -1299,7 +1387,6 @@ profileCard: {
     alignItems: 'center',
   },
 
-  // GENDER OPTIONS
   optionsContainer: {
     marginBottom: moderateScale(24),
   },
@@ -1348,7 +1435,6 @@ profileCard: {
     backgroundColor: '#C97B84',
   },
 
-  // MODAL BUTTONS
   modalButtons: {
     flexDirection: 'row',
     gap: moderateScale(12),
@@ -1390,7 +1476,6 @@ profileCard: {
     color: '#FFFFFF',
   },
 
-  // LOGOUT MODAL
   logoutModalContent: {
     width: '100%',
     maxWidth: isTablet ? moderateScale(420) : moderateScale(340),
