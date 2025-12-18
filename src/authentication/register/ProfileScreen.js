@@ -207,7 +207,7 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Show email if available */}
           {userEmail ? (
             <Text style={styles.emailText}>
-              Email: {userEmail}
+             
             </Text>
           ) : null}
         </View>
