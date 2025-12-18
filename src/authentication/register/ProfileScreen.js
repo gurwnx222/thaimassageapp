@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   PixelRatio,
+  Platform, // ADD Platform import
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -18,9 +19,9 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Responsive scaling functions
+// Responsive scaling functions - MAKE SURE THESE MATCH YOUR SIGNUP COMPONENT
 const scale = (size) => (SCREEN_WIDTH / 375) * size;
-const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size; // FIXED: Correct name
 const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
 const scaleFont = (size) => {
   const scaledSize = (SCREEN_WIDTH / 375) * size;
@@ -32,19 +33,40 @@ const INPUT_WIDTH = Math.min(SCREEN_WIDTH - moderateScale(60), moderateScale(348
 const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - moderateScale(70), moderateScale(338));
 const DROPDOWN_WIDTH = INPUT_WIDTH;
 
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [gender, setGender] = useState('');
   const [showGenderOptions, setShowGenderOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userId, setUserId] = useState('');
 
   // Gender options with translation keys
   const genderOptions = [
-    { value: 'Male', label: t('profileScreen.male') },
-    { value: 'Female', label: t('profileScreen.female') }
+    { value: 'Male', label: t('profileScreen.male') || 'Male' },
+    { value: 'Female', label: t('profileScreen.female') || 'Female' }
   ];
+
+  // Get email from route params or auth
+  useEffect(() => {
+    // Get email from navigation params (passed from signup)
+    const emailFromParams = route.params?.email;
+    
+    if (emailFromParams) {
+      setUserEmail(emailFromParams);
+      console.log('📧 Email from params:', emailFromParams);
+    } else {
+      // If no params, check if user is logged in
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        setUserEmail(currentUser.email);
+        setUserId(currentUser.uid);
+        console.log('👤 User is logged in:', currentUser.uid);
+      }
+    }
+  }, [route.params]);
 
   const handleGenderSelect = (selectedGender) => {
     setGender(selectedGender);
@@ -62,12 +84,12 @@ const ProfileScreen = ({ navigation }) => {
   const saveUserProfile = async () => {
     // Validate inputs
     if (!name.trim()) {
-      setErrorMessage(t('profileScreen.enterNameError'));
+      setErrorMessage(t('profileScreen.enterNameError') || 'Please enter your name');
       return;
     }
 
     if (!gender) {
-      setErrorMessage(t('profileScreen.selectGenderError'));
+      setErrorMessage(t('profileScreen.selectGenderError') || 'Please select your gender');
       return;
     }
 
@@ -75,53 +97,81 @@ const ProfileScreen = ({ navigation }) => {
     setErrorMessage('');
 
     try {
-      // Get current user
-      const currentUser = auth().currentUser;
+      // Get current user OR use userId from state
+      let currentUserId = userId;
+      let currentUserEmail = userEmail;
 
-      if (!currentUser) {
-        setErrorMessage(t('profileScreen.noUserLoggedIn'));
+      // If no userId in state, check auth
+      if (!currentUserId) {
+        const currentUser = auth().currentUser;
+        if (currentUser) {
+          currentUserId = currentUser.uid;
+          currentUserEmail = currentUser.email;
+        }
+      }
+
+      // If still no userId, we need to get it from Firestore using email
+      if (!currentUserId && currentUserEmail) {
+        console.log('🔍 Searching for user by email:', currentUserEmail);
+        
+        // Query Firestore for user by email
+        const usersSnapshot = await firestore()
+          .collection('Useraccount')
+          .where('email', '==', currentUserEmail)
+          .limit(1)
+          .get();
+        
+        if (!usersSnapshot.empty) {
+          const userDoc = usersSnapshot.docs[0];
+          currentUserId = userDoc.id;
+          console.log('✅ Found user in Firestore:', currentUserId);
+        } else {
+          throw new Error('User not found in database');
+        }
+      }
+
+      if (!currentUserId) {
+        setErrorMessage(t('profileScreen.noUserLoggedIn') || 'No user logged in. Please sign up first.');
         setLoading(false);
         return;
       }
 
-      const userId = currentUser.uid;
-      const userEmail = currentUser.email;
+      console.log('💾 Saving profile for user:', currentUserId);
 
       // Prepare user data
       const userData = {
-        uid: userId,
-        email: userEmail,
         name: name.trim(),
-        gender: gender, // Store the value (Male/Female) not the translation
-        createdAt: firestore.FieldValue.serverTimestamp(),
-        updatedAt: firestore.FieldValue.serverTimestamp(),
+        gender: gender,
         profileCompleted: true,
+        updatedAt: firestore.FieldValue.serverTimestamp(),
       };
 
       // Save to Firestore 'Useraccount' collection
       await firestore()
         .collection('Useraccount')
-        .doc(userId)
+        .doc(currentUserId)
         .set(userData, { merge: true });
 
-      console.log('User profile saved successfully!');
+      console.log('✅ User profile saved successfully!');
 
-      // Navigate directly to location screen without alert
-      navigation.navigate('location');
+      // Navigate to location screen
+      navigation.navigate('location', { email: currentUserEmail });
 
     } catch (error) {
-      console.error('Error saving user profile:', error);
+      console.error('❌ Error saving user profile:', error);
       
-      let errorMsg = t('profileScreen.saveFailed');
+      let errorMsg = t('profileScreen.saveFailed') || 'Failed to save profile';
       
       if (error.code === 'firestore/permission-denied') {
-        errorMsg = t('profileScreen.permissionDenied');
+        errorMsg = t('profileScreen.permissionDenied') || 'Permission denied';
       } else if (error.code === 'firestore/unavailable') {
-        errorMsg = t('profileScreen.networkError');
+        errorMsg = t('profileScreen.networkError') || 'Network error';
+      } else if (error.message === 'User not found in database') {
+        errorMsg = 'User account not found. Please try signing up again.';
       }
       
       setErrorMessage(errorMsg);
-      Alert.alert(t('profileScreen.error'), errorMsg);
+      Alert.alert(t('profileScreen.error') || 'Error', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -141,19 +191,25 @@ const ProfileScreen = ({ navigation }) => {
             disabled={loading}
           >
             <View style={styles.backButtonContainer}>
-              {/* Arrow with background circle */}
               <View style={styles.arrowContainer}>
                 <Text style={styles.backArrow}>‹</Text>
               </View>
-              <Text style={styles.backText}>{t('profileScreen.back')}</Text>
+              <Text style={styles.backText}>{t('profileScreen.back') || 'Back'}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>{t('profileScreen.title')}</Text>
-          <Text style={styles.subtitle}>{t('profileScreen.subtitle')}</Text>
+          <Text style={styles.title}>{t('profileScreen.title') || 'Complete Your Profile'}</Text>
+          <Text style={styles.subtitle}>{t('profileScreen.subtitle') || 'Tell us a bit about yourself'}</Text>
+          
+          {/* Show email if available */}
+          {userEmail ? (
+            <Text style={styles.emailText}>
+              Email: {userEmail}
+            </Text>
+          ) : null}
         </View>
 
         {/* Error Message */}
@@ -169,7 +225,7 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.textInput, errorMessage && !name.trim() && styles.textInputError]}
-              placeholder={t('profileScreen.enterName')}
+              placeholder={t('profileScreen.enterName') || 'Enter your full name'}
               placeholderTextColor="#A68FA6"
               value={name}
               onChangeText={(text) => {
@@ -197,7 +253,7 @@ const ProfileScreen = ({ navigation }) => {
                 styles.dropdownText,
                 gender ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder
               ]}>
-                {gender ? getGenderLabel(gender) : t('profileScreen.selectGender')}
+                {gender ? getGenderLabel(gender) : t('profileScreen.selectGender') || 'Select Gender'}
               </Text>
               <View style={styles.dropdownArrow}>
                 <Text style={[
@@ -252,7 +308,7 @@ const ProfileScreen = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.completeButtonText}>{t('profileScreen.completeButton')}</Text>
+              <Text style={styles.completeButtonText}>{t('profileScreen.completeButton') || 'Complete Profile'}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -268,11 +324,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: verticalScale(40),
+    paddingBottom: verticalScale(40), // FIXED: Correct function name
   },
   header: {
-    marginTop: verticalScale(52),
-    marginBottom: verticalScale(40),
+    marginTop: verticalScale(52), // FIXED: Correct function name
+    marginBottom: verticalScale(40), // FIXED: Correct function name
     paddingHorizontal: moderateScale(32),
   },
   backButton: {
@@ -292,9 +348,12 @@ const styles = StyleSheet.create({
     marginRight: moderateScale(12),
   },
   backArrow: {
-    fontSize: scaleFont(28),
+    fontSize: scaleFont(32),
     color: '#D96073',
     fontWeight: 'bold',
+    lineHeight: scaleFont(32),
+    marginTop: Platform.OS === 'android' ? moderateScale(-2) : 0,
+    textAlign: 'center',
   },
   backText: {
     fontSize: scaleFont(16),
@@ -303,7 +362,7 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     paddingHorizontal: moderateScale(30),
-    marginBottom: verticalScale(80),
+    marginBottom: verticalScale(80), // FIXED: Correct function name
   },
   title: {
     fontSize: scaleFont(32),
@@ -317,6 +376,13 @@ const styles = StyleSheet.create({
     color: '#7A6B7A',
     lineHeight: scaleFont(22),
     fontWeight: '400',
+    marginBottom: moderateScale(10),
+  },
+  emailText: {
+    fontSize: scaleFont(14),
+    color: '#5D4A5D',
+    fontStyle: 'italic',
+    marginTop: moderateScale(5),
   },
   errorContainer: {
     marginHorizontal: moderateScale(30),

@@ -403,7 +403,7 @@ const LocationScreen = ({ navigation }) => {
           <View style={styles.successContainer}>
             <Text style={styles.successText}>✓ Location detected!</Text>
             {locationName && (
-              <Text style={styles.locationNameText}>📍 {locationName}</Text>
+              <Text style={styles.locationNameText}>{locationName}</Text>
             )}
           </View>
         ) : null}
@@ -428,7 +428,7 @@ const LocationScreen = ({ navigation }) => {
               </View>
             ) : (
               <>
-                <Text style={styles.locationIcon}>📍</Text>
+                <Text style={styles.locationIcon}></Text>
                 <Text style={styles.locationButtonText}>
                   {location ? 'Update My Location' : 'Get My Location'}
                 </Text>
@@ -479,20 +479,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  arrowContainer: {
-    width: moderateScale(45),
-    height: moderateScale(45),
-    backgroundColor: 'rgba(237, 207, 201, 0.8)',
-    borderRadius: moderateScale(8),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: moderateScale(12),
-  },
-  backArrow: {
-    fontSize: scaleFont(28),
-    color: '#D96073',
-    fontWeight: 'bold',
-  },
+arrowContainer: {
+  width: moderateScale(45),
+  height: moderateScale(45),
+  backgroundColor: 'rgba(237, 207, 201, 0.8)',
+  borderRadius: moderateScale(8),
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: moderateScale(12),
+},
+backArrow: {
+  fontSize: scaleFont(32),
+  color: '#D96073',
+  fontWeight: 'bold',
+  lineHeight: scaleFont(32),
+  marginTop: Platform.OS === 'android' ? moderateScale(-2) : 0,
+  textAlign: 'center',
+},
   backText: {
     fontSize: scaleFont(16),
     color: '#5D4A5D',
@@ -522,7 +525,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 152, 0, 0.1)',
     borderRadius: moderateScale(12),
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
+    borderLeftColor: '#D96073',
     alignItems: 'center',
   },
   warningIcon: {
@@ -538,7 +541,7 @@ const styles = StyleSheet.create({
     lineHeight: scaleFont(20),
   },
   settingsButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: '#D96073',
     paddingHorizontal: moderateScale(24),
     paddingVertical: moderateScale(12),
     borderRadius: moderateScale(8),
@@ -567,13 +570,13 @@ const styles = StyleSheet.create({
     marginHorizontal: moderateScale(30),
     marginBottom: moderateScale(20),
     padding: moderateScale(15),
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    backgroundColor: 'rgba(217, 96, 115, 0.1)',
     borderRadius: moderateScale(8),
     borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+    borderLeftColor: 'D96073',
   },
   successText: {
-    color: '#4CAF50',
+    color: 'D96073',
     fontSize: scaleFont(16),
     fontWeight: '600',
     textAlign: 'center',
@@ -600,17 +603,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     marginBottom: moderateScale(20),
-    shadowColor: '#262628',
-    shadowOffset: {
-      width: 0,
-      height: moderateScale(4),
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: moderateScale(12),
-    elevation: 8,
+    shadowColor: 'D96073',
+   
   },
   locationButtonSuccess: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#D96073',
   },
   locationButtonDisabled: {
     backgroundColor: 'rgba(139, 123, 139, 0.6)',
@@ -636,14 +633,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: moderateScale(30),
-    shadowColor: '#262628',
-    shadowOffset: {
-      width: 0,
-      height: moderateScale(4),
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: moderateScale(12),
-    elevation: 8,
+ 
+   
   },
   completeButtonDisabled: {
     backgroundColor: 'rgba(217, 96, 115, 0.4)',

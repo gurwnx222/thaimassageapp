@@ -126,7 +126,7 @@ const ProfileRow = ({ label, value, onPress, t, formatText, isNumeric = false, f
         if (fieldType === 'location') {
           if (typeof value === 'object' && value !== null && 'latitude' in value && 'longitude' in value) {
             if (value.city) {
-              setTranslatedValue(`📍 ${value.city}`);
+              setTranslatedValue(` ${value.city}`);
             } else {
               const locationText = `${Number(value.latitude).toFixed(4)}°, ${Number(value.longitude).toFixed(4)}°`;
               setTranslatedValue(locationText);
@@ -296,38 +296,75 @@ const Setting = ({ navigation }) => {
     });
   };
 
-  const uploadImageToFirebase = async (asset) => {
-    try {
-      setUploadingImage(true);
-      const currentUser = auth().currentUser;
-      if (!currentUser) return;
-
-      const imageUri = Platform.OS === 'ios' ? asset.uri.replace('file://', '') : asset.uri;
-      const filename = `profile_${currentUser.uid}_${Date.now()}.jpg`;
-      const reference = storage().ref(`profileImages/${filename}`);
-
-      await reference.putFile(imageUri);
-      const downloadURL = await reference.getDownloadURL();
-
-      await firestore()
-        .collection('Useraccount')
-        .doc(currentUser.uid)
-        .update({
-          profileImage: downloadURL,
-          updatedAt: firestore.FieldValue.serverTimestamp(),
-        });
-
-      setProfileImage(downloadURL);
-      setUserData((prev) => ({ ...prev, profileImage: downloadURL }));
-      
-      console.log('Profile image uploaded successfully');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      Alert.alert(t('alerts.error'), t('alerts.imageUploadFailed'));
-    } finally {
-      setUploadingImage(false);
+const uploadImageToFirebase = async (asset) => {
+  try {
+    setUploadingImage(true);
+    const currentUser = auth().currentUser;
+    
+    if (!currentUser) {
+      Alert.alert(t('alerts.error'), 'User not authenticated');
+      return;
     }
-  };
+
+    console.log('Starting upload for user:', currentUser.uid);
+    
+    const imageUri = Platform.OS === 'ios' 
+      ? asset.uri.replace('file://', '') 
+      : asset.uri;
+    
+    const filename = `profile_${currentUser.uid}_${Date.now()}.jpg`;
+    const reference = storage().ref(`profileImages/${filename}`);
+    
+    console.log('Upload path:', `profileImages/${filename}`);
+    
+    // Upload the file and wait for completion
+    await reference.putFile(imageUri);
+    
+    console.log('Upload completed successfully!');
+    
+    // Small delay to ensure file is fully available
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Get download URL
+    const downloadURL = await reference.getDownloadURL();
+    
+    console.log('Download URL obtained:', downloadURL);
+    
+    // Update Firestore
+    await firestore()
+      .collection('Useraccount')
+      .doc(currentUser.uid)
+      .update({
+        profileImage: downloadURL,
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      });
+
+    setProfileImage(downloadURL);
+    setUserData((prev) => ({ ...prev, profileImage: downloadURL }));
+    
+    Alert.alert('Success', 'Profile image updated successfully!');
+    console.log('Profile image uploaded successfully');
+    
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    let errorMessage = t('alerts.imageUploadFailed');
+    
+    if (error.code === 'storage/unauthorized') {
+      errorMessage = 'Permission denied. Please check Storage rules in Firebase Console.';
+    } else if (error.code === 'storage/object-not-found') {
+      errorMessage = 'Upload failed. Please check your internet connection and try again.';
+    } else if (error.code === 'storage/unauthenticated') {
+      errorMessage = 'You must be logged in to upload images.';
+    }
+    
+    Alert.alert(t('alerts.error'), errorMessage);
+  } finally {
+    setUploadingImage(false);
+  }
+};
 
   const handleLanguageTypeSelect = async (lang) => {
     try {
@@ -443,7 +480,7 @@ const Setting = ({ navigation }) => {
       setTempLocation(apiLocation);
 
       if (apiLocation.city) {
-        Alert.alert('✅ Location Loaded', `📍 ${apiLocation.city}, ${apiLocation.country}`);
+        Alert.alert('✅ Location Loaded', ` ${apiLocation.city}, ${apiLocation.country}`);
       } else {
         Alert.alert('✅ Location Loaded', `Lat: ${apiLocation.latitude.toFixed(6)}\nLong: ${apiLocation.longitude.toFixed(6)}`);
       }
@@ -515,7 +552,7 @@ const Setting = ({ navigation }) => {
 
             Alert.alert(
               '✅ Success',
-              `Location detected!\n📍 ${geocodeResult.city}, ${geocodeResult.country}`
+              `Location detected!\n ${geocodeResult.city}, ${geocodeResult.country}`
             );
           } else {
             console.log('⚠️ Could not get location name, using coordinates only');
@@ -715,7 +752,7 @@ const Setting = ({ navigation }) => {
               <Text style={styles.locationLabel}>Current Location:</Text>
               {tempLocation.city ? (
                 <>
-                  <Text style={styles.locationCity}>📍 {tempLocation.city}</Text>
+                  <Text style={styles.locationCity}> {tempLocation.city}</Text>
                   {tempLocation.country && (
                     <Text style={styles.locationCountry}>{tempLocation.country}</Text>
                   )}
@@ -755,7 +792,7 @@ const Setting = ({ navigation }) => {
               </View>
             ) : (
               <>
-                <Text style={styles.locationIcon}>📍</Text>
+                <Text style={styles.locationIcon}></Text>
                 <Text style={styles.getLocationButtonText}>
                   {tempLocation ? 'Update Location' : 'Get My Location'}
                 </Text>
@@ -1313,7 +1350,7 @@ profileCard: {
     padding: moderateScale(16),
     marginBottom: moderateScale(16),
     borderWidth: 1,
-    borderColor: '#4CAF50',
+    borderColor: '#2D1B47',
   },
 
   locationLabel: {

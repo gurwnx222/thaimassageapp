@@ -8,18 +8,21 @@ import {
   StatusBar,
   ScrollView,
   Dimensions,
-  Alert,
   ActivityIndicator,
   PixelRatio,
   Image,
+  Platform,
+  Alert,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useLanguage } from '../../context/LanguageContext';
 import Svg, { Path } from 'react-native-svg';
+import TermsAndConditions from '../../context/TermsAndConditions';
+import { saveOTPAndSendEmail } from '../../utils/otpHelper';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width:  SCREEN_WIDTH, height:  SCREEN_HEIGHT } = Dimensions. get('window');
 
 // Responsive scaling functions
 const scale = (size) => (SCREEN_WIDTH / 375) * size;
@@ -64,20 +67,21 @@ const Signup = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
-  // Configure Google Sign-In with better error handling
+  // Configure Google Sign-In
   useEffect(() => {
     const configureGoogleSignIn = async () => {
       try {
         await GoogleSignin.configure({
-          webClientId: '460156669437-aruvatddasgqkng7v7se6c7nrfit3f5q.apps.googleusercontent.com',
+          webClientId: '164432241102-2ubmgo9etcjv28dlqrdqgl4plsrlpv8j.apps.googleusercontent.com',
           offlineAccess: true,
           hostedDomain: '',
           forceCodeForRefreshToken: true,
         });
-        console.log('Google Sign-In configured successfully');
+        console.log('✅ Google Sign-In configured successfully');
       } catch (error) {
-        console.error('Google Sign-In configuration error:', error);
+        console.error('❌ Google Sign-In configuration error:', error);
       }
     };
 
@@ -90,57 +94,57 @@ const Signup = ({ navigation }) => {
     return emailRegex.test(email);
   };
 
-  // Save user data to Firestore - UPDATED to preserve existing name
+  // Save user data to Firestore
   const saveUserToFirestore = async (userId, userData, isExistingUser = false) => {
     try {
-      console.log('Saving user data to Firestore:', { userId, userData, isExistingUser });
+      console.log('💾 Saving user data to Firestore:', { userId, isExistingUser });
+      
+      const safeUserData = userData || {};
       
       if (isExistingUser) {
-        // Existing user - fetch current data and preserve name
         const userDoc = await firestore()
           .collection('Useraccount')
           .doc(userId)
           .get();
         
-        const existingData = userDoc.exists ? userDoc.data() : {};
+        const existingData = userDoc.exists ?  userDoc.data() || {} : {};
         
         await firestore()
           .collection('Useraccount')
           .doc(userId)
           .set({
-            // Preserve existing name, otherwise use Google name (will be overwritten in profile screen)
-            name: existingData.name || userData.name || '',
-            email: userData.email || existingData.email || '',
-            photoURL: userData.photoURL || existingData.photoURL || '',
-            // Preserve existing gender and location
+            name: existingData.name || safeUserData.name || '',
+            email: safeUserData.email || existingData.email || '',
+            photoURL: safeUserData.photoURL || existingData.photoURL || '',
             gender: existingData.gender || '',
             location: existingData.location || '',
+            emailVerified: safeUserData.emailVerified !== undefined ? safeUserData.emailVerified : existingData.emailVerified || false,
             updatedAt: firestore.FieldValue.serverTimestamp(),
           }, { merge: true });
         
-        console.log('Existing user data updated (name preserved)');
+        console.log('✅ Existing user data updated');
       } else {
-        // New user - create with empty name (will be filled in profile screen)
         await firestore()
           .collection('Useraccount')
           .doc(userId)
           .set({
-            name: '', // Leave empty for new users - will be filled in profile screen
-            email: userData.email || '',
-            gender: userData.gender || '',
-            location: userData.location || '',
-            photoURL: userData.photoURL || '',
+            name: safeUserData.name || '',
+            email: safeUserData.email || '',
+            gender: '',
+            location: '',
+            photoURL: safeUserData.photoURL || '',
+            emailVerified: safeUserData.emailVerified || false,
             createdAt: firestore.FieldValue.serverTimestamp(),
-            updatedAt: firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
+            updatedAt: firestore. FieldValue.serverTimestamp(),
+          });
         
-        console.log('New user data saved successfully to Firestore');
+        console.log('✅ New user data saved to Firestore');
       }
       
       return { success: true };
     } catch (error) {
-      console.error('Error saving user to Firestore:', error);
-      return { success: false, error: error.message };
+      console.error('❌ Error saving user to Firestore:', error);
+      return { success: false, error:  error.message };
     }
   };
 
@@ -153,30 +157,21 @@ const Signup = ({ navigation }) => {
         .get();
 
       if (userDoc.exists) {
-        const userData = userDoc.data();
+        const userData = userDoc.data() || {};
         
-        if (!userData) {
-          console.log('User document exists but data is undefined');
-          return { complete: false, needsLocation: false, needsProfile: true };
-        }
-        
-        console.log('User profile data:', userData);
-        
-        // Check if all required fields are present
         if (userData.name && userData.gender && userData.location) {
-          return { complete: true, needsLocation: false, needsProfile: false };
+          return { complete:  true, needsLocation: false, needsProfile: false };
         } else if (userData.name && userData.gender) {
-          return { complete: false, needsLocation: true, needsProfile: false };
+          return { complete:  false, needsLocation: true, needsProfile: false };
         } else {
           return { complete: false, needsLocation: false, needsProfile: true };
         }
       } else {
-        console.log('User document does not exist');
-        return { complete: false, needsLocation: false, needsProfile: true };
+        return { complete:  false, needsLocation: false, needsProfile: true };
       }
     } catch (error) {
-      console.error('Error checking user profile:', error);
-      return { complete: false, needsLocation: false, needsProfile: true };
+      console.error('❌ Error checking user profile:', error);
+      return { complete:  false, needsLocation: false, needsProfile: true };
     }
   };
 
@@ -184,128 +179,140 @@ const Signup = ({ navigation }) => {
   const getSignupErrorMessage = (errorCode) => {
     switch (errorCode) {
       case 'auth/email-already-in-use':
-        return t('signup.emailAlreadyInUse');
+        return t('signup.emailAlreadyInUse') || 'This email is already registered';
       case 'auth/invalid-email':
-        return t('signup.invalidEmail');
+        return t('signup.invalidEmail') || 'Invalid email format';
       case 'auth/operation-not-allowed':
-        return t('signup.operationNotAllowed');
+        return t('signup.operationNotAllowed') || 'Operation not allowed';
       case 'auth/weak-password':
-        return t('signup.weakPassword');
+        return t('signup.weakPassword') || 'Password is too weak';
       case 'auth/network-request-failed':
-        return t('signup.networkError');
+        return t('signup.networkError') || 'Network error';
       case 'auth/too-many-requests':
-        return t('signup.tooManyRequests');
+        return t('signup.tooManyRequests') || 'Too many requests';
       default:
-        return t('signup.unexpectedError');
+        return t('signup. unexpectedError') || 'An unexpected error occurred';
     }
   };
 
-  // Firebase create user account function
+  // Create user account with OTP
   const createUserAccount = async (email, password) => {
     try {
+      console.log('🔐 Creating user account for:', email);
+      
+      // Step 1: Create Firebase user
       const userCredential = await auth().createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
       
-      console.log('User account created successfully:', user.uid);
+      console.log('✅ Firebase user created:', user.uid);
       
-      // Save user to Firestore
-      await saveUserToFirestore(user.uid, {
-        name: '',
+      // Step 2: Save to Firestore (user is still signed in)
+      await saveUserToFirestore(user. uid, {
         email: user.email,
-        gender: '',
-        location: '',
-        photoURL: '',
-      });
+        emailVerified: false,
+      }, false);
+      
+      // Step 3: Generate and send OTP
+      console.log('📧 Generating and sending OTP...');
+      const otpResult = await saveOTPAndSendEmail(email);
+      
+      if (! otpResult.success) {
+        console.error('❌ Failed to send OTP:', otpResult.error);
+        
+        return {
+          success: true,
+          user: {
+            uid: user.uid,
+            email: user.email,
+            emailVerified: false,
+          },
+          message: 'Account created!  Please check your email for verification code.',
+          otpWarning: true,
+        };
+      }
+      
+      console.log('✅ OTP sent successfully');
+      
+      // Sign out AFTER sending OTP
+      await auth().signOut();
+      console.log('🚪 User signed out - awaiting verification');
       
       return {
         success: true,
-        user: {
+        user:  {
           uid: user.uid,
           email: user.email,
-          emailVerified: user.emailVerified,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
+          emailVerified: false,
         },
-        message: 'Account created successfully!'
+        message:  'Account created!  Verification code sent to your email.',
       };
       
     } catch (error) {
-      console.error('Error creating user account:', error);
+      console.error('❌ Error creating user account:', error);
       
       return {
         success: false,
-        error: getSignupErrorMessage(error.code),
-        code: error?.code || 'unknown'
+        error:  getSignupErrorMessage(error. code),
+        code: error?. code || 'unknown',
       };
     }
   };
 
-  // Get translated error message for Google Sign-In
+  // Google Sign-In error messages
   const getGoogleErrorMessage = (errorCode) => {
     switch (errorCode) {
-      case statusCodes.SIGN_IN_CANCELLED:
-        return t('signup.signInCancelled');
+      case statusCodes.SIGN_IN_CANCELLED: 
+        return t('signup.signInCancelled') || 'Sign in cancelled';
       case statusCodes.IN_PROGRESS:
-        return t('signup.signInInProgress');
-      case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-        return t('signup.playServicesUnavailable');
+        return t('signup.signInInProgress') || 'Sign in in progress';
+      case statusCodes. PLAY_SERVICES_NOT_AVAILABLE:
+        return t('signup.playServicesUnavailable') || 'Play Services unavailable';
       case 'auth/account-exists-with-different-credential':
-        return t('signup.accountExists');
+        return t('signup. accountExists') || 'Account exists with different credential';
       case 'auth/invalid-credential':
-        return t('signup.invalidCredential');
+        return t('signup. invalidCredential') || 'Invalid credential';
       case 'auth/network-request-failed':
-        return t('signup.networkError');
+        return t('signup.networkError') || 'Network error';
       case 'auth/user-disabled':
-        return t('signup.userDisabled');
+        return t('signup. userDisabled') || 'User disabled';
       case 'auth/operation-not-allowed':
-        return t('signup.operationNotAllowedGoogle');
-      case 'auth/configuration-not-found':
-        return t('signup.configurationNotFound');
+        return t('signup.operationNotAllowedGoogle') || 'Operation not allowed';
       default:
-        return t('signup.googleSignInFailed');
+        return t('signup. googleSignInFailed') || 'Google sign-in failed';
     }
   };
 
-  // Google Sign-In function with Firestore save and proper navigation
+  // Google Sign-In function
   const signInWithGoogle = async () => {
     try {
       setGoogleLoading(true);
       setErrorMessage('');
 
-      console.log('Starting Google Sign-In process...');
+      console.log('🔍 Starting Google Sign-In...');
 
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      console.log('Play Services available');
       
-      const signInResult = await GoogleSignin.signIn();
-      console.log('Google Sign-In result:', signInResult);
+      const signInResult = await GoogleSignin. signIn();
       
-      let idToken, user;
+      let idToken, googleUser;
       
       if (signInResult.type === 'success') {
-        idToken = signInResult.data?.idToken;
-        user = signInResult.data?.user;
-        console.log('Using new response format');
+        idToken = signInResult.data?. idToken;
+        googleUser = signInResult.data?.user;
       } else if (signInResult.idToken) {
         idToken = signInResult.idToken;
-        user = signInResult.user;
-        console.log('Using old response format');
+        googleUser = signInResult. user;
       }
       
       if (!idToken) {
-        console.error('Sign-In result structure:', JSON.stringify(signInResult));
         throw new Error('Failed to get user credentials from Google Sign-In');
       }
-      
-      console.log('Got ID token and user data');
-      console.log('Google user info:', user);
       
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
       const userCredential = await auth().signInWithCredential(googleCredential);
       
-      console.log('Firebase authentication successful:', userCredential.user);
+      console.log('✅ Firebase authentication successful');
       
-      // Check if user document exists in Firestore BEFORE saving
       const userDocBefore = await firestore()
         .collection('Useraccount')
         .doc(userCredential.user.uid)
@@ -313,61 +320,42 @@ const Signup = ({ navigation }) => {
       
       const isExistingUser = userDocBefore.exists;
       
-      console.log('Is existing user:', isExistingUser);
+      const userEmail = googleUser?. email || userCredential.user.email || '';
       
-      // Save or update user data - pass isExistingUser flag
-      const saveResult = await saveUserToFirestore(
+      await saveUserToFirestore(
         userCredential.user.uid,
         {
-          name: user?.name || user?.givenName || userCredential.user.displayName || '',
-          email: user?.email || userCredential.user.email || '',
-          gender: '',
-          location: '',
-          photoURL: user?.photo || userCredential.user.photoURL || '',
+          email:  userEmail,
+          emailVerified: true,
         },
         isExistingUser
       );
       
-      if (!saveResult.success) {
-        console.error('Failed to save user to Firestore, but authentication was successful');
-      }
-      
-      // Navigate based on whether user is new or existing
-      if (!isExistingUser) {
-        // New user - navigate to profile screen
-        console.log('New user detected - navigating to profile');
+      if (! isExistingUser) {
         navigation.navigate('profile');
       } else {
-        // Existing user - check profile completeness
-        console.log('Existing user detected - checking profile completeness');
         const profileStatus = await checkUserProfile(userCredential.user.uid);
         
         if (profileStatus.complete) {
-          // Profile complete - go to Home
-          console.log('Profile complete - navigating to Home');
           navigation.navigate('Home');
         } else if (profileStatus.needsProfile) {
-          // Missing name/gender - go to profile
-          console.log('Profile incomplete - navigating to profile');
           navigation.navigate('profile');
         } else if (profileStatus.needsLocation) {
-          // Missing location - go to location
-          console.log('Location missing - navigating to location');
           navigation.navigate('location');
         }
       }
       
     } catch (error) {
-      console.error('Google Sign-In Error:', error);
+      console.error('❌ Google Sign-In Error:', error);
       
-      let errorMessage = getGoogleErrorMessage(error?.code);
+      let errorMsg = getGoogleErrorMessage(error?. code);
       
-      if (error && typeof error === 'object' && error.message && !error.code) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && error.message && ! error.code) {
+        errorMsg = error.message;
       }
       
       if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
-        setErrorMessage(errorMessage);
+        setErrorMessage(errorMsg);
       }
       
     } finally {
@@ -375,49 +363,72 @@ const Signup = ({ navigation }) => {
     }
   };
 
-  // Handle create account with email/password
+  // ✅ UPDATED:  Handle create account button press
   const handleCreateAccount = async () => {
     setErrorMessage('');
 
-    if (!email.trim()) {
-      setErrorMessage(t('signup.enterEmailError'));
+    if (!email. trim()) {
+      setErrorMessage(t('signup.enterEmailError') || 'Please enter your email');
       return;
     }
 
     if (!isValidEmail(email)) {
-      setErrorMessage(t('signup.validEmailError'));
+      setErrorMessage(t('signup. validEmailError') || 'Please enter a valid email');
       return;
     }
 
-    if (!password.trim()) {
-      setErrorMessage(t('signup.enterPasswordError'));
+    if (! password.trim()) {
+      setErrorMessage(t('signup.enterPasswordError') || 'Please enter a password');
       return;
     }
 
     if (password.length < 8) {
-      setErrorMessage(t('signup.passwordTooShort'));
+      setErrorMessage(t('signup.passwordTooShort') || 'Password must be at least 8 characters');
       return;
     }
 
     setLoading(true);
 
     try {
-      const result = await createUserAccount(email.trim(), password);
+      const result = await createUserAccount(email. trim(), password);
 
       if (result.success) {
-        navigation.navigate('otp');
+        console.log('✅ Account creation successful');
+        
+        if (result.otpWarning) {
+          Alert.alert(
+            'Account Created',
+            'Your account was created but we had trouble sending the verification email. You can request a new code on the next screen.',
+            [
+              {
+                text: 'Continue',
+                // ✅ FIX: Pass password for auto sign-in after OTP
+                onPress: () => navigation.navigate('otp', { 
+                  email: email.trim(),
+                  password: password  // Pass password securely
+                }),
+              },
+            ]
+          );
+        } else {
+          // ✅ FIX:  Navigate to OTP screen with email AND password
+          navigation.navigate('otp', { 
+            email: email.trim(),
+            password: password  // Pass password for auto sign-in after verification
+          });
+        }
       } else {
+        console.error('❌ Account creation failed:', result.error);
         setErrorMessage(result.error);
       }
     } catch (error) {
-      console.error('Create account error:', error);
-      setErrorMessage(t('signup.unexpectedError'));
+      console.error('❌ Unexpected error:', error);
+      setErrorMessage(t('signup.unexpectedError') || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Google Sign Up
   const handleGoogleSignUp = async () => {
     await signInWithGoogle();
   };
@@ -426,7 +437,11 @@ const Signup = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
       
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header with Back Button */}
         <View style={styles.header}>
           <TouchableOpacity 
@@ -436,23 +451,22 @@ const Signup = ({ navigation }) => {
             disabled={loading || googleLoading}
           >
             <View style={styles.backButtonContainer}>
-              {/* Arrow with background circle */}
               <View style={styles.arrowContainer}>
                 <Text style={styles.backArrow}>‹</Text>
               </View>
-              <Text style={styles.backText}>{t('signup.back')}</Text>
+              <Text style={styles.backText}>{t('signup.back') || 'Back'}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>{t('signup.createAccount')}</Text>
-          <Text style={styles.subtitle}>{t('signup.subtitle')}</Text>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>{t('signup.subtitle') || 'Sign up to get started'}</Text>
         </View>
 
         {/* Error Message */}
-        {errorMessage ? (
+        {errorMessage ?  (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
@@ -464,7 +478,7 @@ const Signup = ({ navigation }) => {
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.textInput, errorMessage && styles.textInputError]}
-              placeholder={t('signup.enterEmail')}
+              placeholder={t('signup.enterEmail') || 'Enter your email'}
               placeholderTextColor="#A68FA6"
               value={email}
               onChangeText={(text) => {
@@ -473,6 +487,7 @@ const Signup = ({ navigation }) => {
               }}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               editable={!loading && !googleLoading}
             />
           </View>
@@ -481,15 +496,16 @@ const Signup = ({ navigation }) => {
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.textInput, errorMessage && styles.textInputError]}
-              placeholder={t('signup.createPassword')}
+              placeholder={t('signup.createPassword') || 'Create a password'}
               placeholderTextColor="#A68FA6"
               value={password}
               onChangeText={(text) => {
                 setPassword(text);
                 if (errorMessage) setErrorMessage('');
               }}
-              secureTextEntry={!showPassword}
+              secureTextEntry={! showPassword}
               autoCapitalize="none"
+              autoCorrect={false}
               editable={!loading && !googleLoading}
             />
             <TouchableOpacity 
@@ -512,16 +528,16 @@ const Signup = ({ navigation }) => {
             onPress={handleCreateAccount}
             disabled={loading || googleLoading}
           >
-            {loading ? (
+            {loading ?  (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.createButtonText}>{t('signup.createButton')}</Text>
+              <Text style={styles. createButtonText}>Create Account</Text>
             )}
           </TouchableOpacity>
 
           {/* Divider */}
           <View style={styles.dividerSection}>
-            <Text style={styles.dividerText}>{t('signup.orSignUpWith')}</Text>
+            <Text style={styles.dividerText}>{t('signup.orSignUpWith') || 'or sign up with'}</Text>
           </View>
 
           {/* Google Button */}
@@ -540,12 +556,30 @@ const Signup = ({ navigation }) => {
                 </View>
               )}
               <Text style={styles.googleButtonText}>
-                {googleLoading ? t('signup.signingIn') : t('signup.signUpWithGoogle')}
+                {googleLoading ? t('signup.signingIn') || 'Signing in...' :  t('signup.signUpWithGoogle') || 'Sign up with Google'}
               </Text>
             </View>
           </TouchableOpacity>
+
+          {/* Terms and Conditions Link */}
+          <View style={styles.termsContainer}>
+            <Text style={styles.termsPrefix}>By creating an account, you agree to our </Text>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => setShowTermsModal(true)}
+              disabled={loading || googleLoading}
+            >
+              <Text style={styles.termsLink}>Terms and Conditions</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+
+      {/* Terms and Conditions Modal */}
+      <TermsAndConditions 
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </View>
   );
 };
@@ -564,9 +598,7 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(40),
     paddingHorizontal: moderateScale(32),
   },
-  backButton: {
-    // Main back button container
-  },
+  backButton: {},
   backButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -577,14 +609,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(237, 207, 201, 0.8)',
     borderRadius: moderateScale(8),
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems:  'center',
     marginRight: moderateScale(12),
   },
   backArrow: {
-    fontSize: scaleFont(28),
+    fontSize: scaleFont(32),
     color: '#D96073',
     fontWeight: 'bold',
-    
+    lineHeight: scaleFont(32),
+    marginTop: Platform.OS === 'android' ?  moderateScale(-2) : 0,
+    textAlign: 'center',
   },
   backText: {
     fontSize: scaleFont(16),
@@ -603,7 +637,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: scaleFont(16),
+    fontSize:  scaleFont(16),
     color: '#7A6B7A',
     lineHeight: scaleFont(22),
     fontWeight: '400',
@@ -639,7 +673,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDCFC9',
     borderRadius: moderateScale(12),
     paddingHorizontal: moderateScale(20),
-    paddingVertical: moderateScale(16),
+    paddingVertical:  moderateScale(16),
     fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '500',
@@ -668,7 +702,7 @@ const styles = StyleSheet.create({
     height: moderateScale(24),
   },
   createButton: {
-    width: BUTTON_WIDTH,
+    width:  BUTTON_WIDTH,
     height: moderateScale(54),
     backgroundColor: '#D96073',
     borderRadius: moderateScale(16),
@@ -678,7 +712,7 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(30),
     shadowColor: '#262628',
     shadowOffset: {
-      width: 0,
+      width:  0,
       height: moderateScale(4),
     },
     shadowOpacity: 0.2,
@@ -689,7 +723,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(217, 96, 115, 0.6)',
   },
   createButtonText: {
-    color: '#FFFFFF',
+    color:  '#FFFFFF',
     fontSize: scaleFont(18),
     fontWeight: '700',
   },
@@ -700,7 +734,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: scaleFont(15),
     color: '#8B7B8B',
-    fontWeight: '500',
+    fontWeight:  '500',
   },
   googleButton: {
     width: BUTTON_WIDTH,
@@ -708,7 +742,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(237, 207, 201, 0.6)',
     borderRadius: moderateScale(12),
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems:  'center',
     borderWidth: 1,
     borderColor: 'rgba(237, 207, 201, 0.8)',
   },
@@ -726,6 +760,25 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(16),
     color: '#5D4A5D',
     fontWeight: '500',
+  },
+  termsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: moderateScale(20),
+    paddingHorizontal: moderateScale(20),
+  },
+  termsPrefix: {
+    fontSize: scaleFont(13),
+    color: '#7A6B7A',
+    fontWeight: '400',
+  },
+  termsLink: {
+    fontSize: scaleFont(13),
+    color: '#D96073',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
 

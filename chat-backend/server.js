@@ -1,565 +1,400 @@
-require('dotenv').config();
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
+const nodemailer = require('nodemailer');
 const cors = require('cors');
-const mongoose = require('mongoose');
+const admin = require('firebase-admin');
+require('dotenv').config();
 
 const app = express();
-const server = http.createServer(app);
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ============================================
-// MONGODB CONNECTION
-// ============================================
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://thaimassageapp:thai12345678@cluster0.6wpsnbz.mongodb.net/?appName=Cluster0';
-
-mongoose
-  .connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch((err) => {
-    console.error('❌ MongoDB Connection Error:', err);
-    process.exit(1);
+// Initialize Firebase Admin (optional - for Firestore access)
+// Download serviceAccountKey.json from Firebase Console
+// Project Settings → Service Accounts → Generate New Private Key
+try {
+  const serviceAccount = require('./serviceAccountKey.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
   });
+  console.log('✅ Firebase Admin initialized');
+} catch (error) {
+  console.log('⚠️ Firebase Admin not initialized:', error. message);
+}
 
-// ============================================
-// MONGODB SCHEMAS & MODELS
-// ============================================
-
-// User Schema
-const userSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true },
-    avatar: { type: String, default: '' },
-    isOnline: { type: Boolean, default: false },
-    lastSeen: { type: Date, default: Date.now },
-    socketId: { type: String, default: '' },
+// Configure Email Transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // You can use:  'gmail', 'outlook', 'yahoo', etc.
+  auth: {
+    user: process.env. EMAIL_USER,     // Your email
+    pass: process.env.EMAIL_PASSWORD, // Your app password
   },
-  { timestamps: true }
-);
-
-// Conversation Schema
-const conversationSchema = new mongoose.Schema(
-  {
-    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
-    lastMessageTime: { type: Date, default: Date.now },
-  },
-  { timestamps: true }
-);
-conversationSchema.index({ participants: 1 });
-
-// Message Schema
-const messageSchema = new mongoose.Schema(
-  {
-    conversationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Conversation',
-      required: true,
-    },
-    sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    receiver: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    messageType: { type: String, enum: ['text', 'image'], default: 'text' },
-    text: { type: String, default: '' },
-    imageUrl: { type: String, default: '' },
-    isRead: { type: Boolean, default: false },
-    readAt: { type: Date },
-    isDelivered: { type: Boolean, default: false },
-    deliveredAt: { type: Date },
-  },
-  { timestamps: true }
-);
-messageSchema.index({ conversationId: 1, createdAt: -1 });
-
-// Create Models
-const User = mongoose.model('User', userSchema);
-const Conversation = mongoose.model('Conversation', conversationSchema);
-const Message = mongoose.model('Message', messageSchema);
-
-// ============================================
-// SOCKET.IO SETUP
-// ============================================
-const io = socketIo(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
 });
 
-// Store online users: userId -> socketId
-const onlineUsers = new Map();
-
-io.on('connection', (socket) => {
-  console.log('🔌 New client connected:', socket.id);
-
-  // ============================================
-  // EVENT: USER CONNECTED
-  // ============================================
-  socket.on('user_connected', async (userId) => {
-    try {
-      console.log(`👤 User ${userId} connected`);
-      
-      onlineUsers.set(userId, socket.id);
-
-      await User.findByIdAndUpdate(userId, {
-        isOnline: true,
-        socketId: socket.id,
-        lastSeen: new Date(),
-      });
-
-      io.emit('user_status', {
-        userId,
-        isOnline: true,
-      });
-    } catch (error) {
-      console.error('❌ Error in user_connected:', error);
-    }
-  });
-
-
-  socket.on('send_message', async (data) => {
-    try {
-      const { conversationId, senderId, receiverId, text, messageType, imageUrl, tempId } = data;
-
-      console.log('📤 Sending message:', { senderId, receiverId });
-
-      // Find or create conversation
-      let conversation;
-      if (conversationId) {
-        conversation = await Conversation.findById(conversationId);
-      }
-
-      if (!conversation) {
-        conversation = await Conversation.create({
-          participants: [senderId, receiverId],
-        });
-      }
-
-      // Create message
-      const newMessage = await Message.create({
-        conversationId: conversation._id,
-        sender: senderId,
-        receiver: receiverId,
-        messageType: messageType || 'text',
-        text: text || '',
-        imageUrl: imageUrl || '',
-        isDelivered: false,
-        isRead: false,
-      });
-
-      // Populate sender info
-      await newMessage.populate('sender', 'name avatar');
-
-      // Update conversation
-      await Conversation.findByIdAndUpdate(conversation._id, {
-        lastMessage: newMessage._id,
-        lastMessageTime: new Date(),
-      });
-
-      // Send to receiver if online
-      const receiverSocketId = onlineUsers.get(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('receive_message', {
-          message: {
-            _id: newMessage._id,
-            conversationId: conversation._id,
-            sender: newMessage.sender,
-            text: newMessage.text,
-            imageUrl: newMessage.imageUrl,
-            messageType: newMessage.messageType,
-            createdAt: newMessage.createdAt,
-          },
-        });
-
-        // Mark as delivered
-        await Message.findByIdAndUpdate(newMessage._id, {
-          isDelivered: true,
-          deliveredAt: new Date(),
-        });
-      }
-
-      // Send confirmation to sender
-      socket.emit('message_sent', {
-        message: {
-          _id: newMessage._id,
-          conversationId: conversation._id,
-          tempId: tempId,
-          text: newMessage.text,
-          imageUrl: newMessage.imageUrl,
-          messageType: newMessage.messageType,
-          createdAt: newMessage.createdAt,
-          isDelivered: receiverSocketId ? true : false,
-        },
-      });
-
-      console.log('✅ Message sent successfully');
-    } catch (error) {
-      console.error('❌ Error in send_message:', error);
-      socket.emit('message_error', { error: error.message });
-    }
-  });
-
-  // ============================================
-  // EVENT: MESSAGE DELIVERED
-  // ============================================
-  socket.on('message_delivered', async (messageId) => {
-    try {
-      const message = await Message.findByIdAndUpdate(
-        messageId,
-        { isDelivered: true, deliveredAt: new Date() },
-        { new: true }
-      );
-
-      if (message) {
-        const senderSocketId = onlineUsers.get(message.sender.toString());
-        if (senderSocketId) {
-          io.to(senderSocketId).emit('message_status_update', {
-            messageId,
-            isDelivered: true,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error in message_delivered:', error);
-    }
-  });
-
-  // ============================================
-  // EVENT: MESSAGE READ
-  // ============================================
-  socket.on('message_read', async (data) => {
-    try {
-      const { messageId, conversationId, userId } = data;
-
-      await Message.findByIdAndUpdate(messageId, {
-        isRead: true,
-        readAt: new Date(),
-      });
-
-      // Mark all messages in conversation as read
-      await Message.updateMany(
-        { conversationId, receiver: userId, isRead: false },
-        { isRead: true, readAt: new Date() }
-      );
-
-      const message = await Message.findById(messageId);
-      if (message) {
-        const senderSocketId = onlineUsers.get(message.sender.toString());
-        if (senderSocketId) {
-          io.to(senderSocketId).emit('message_status_update', {
-            messageId,
-            conversationId,
-            isRead: true,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error in message_read:', error);
-    }
-  });
-
-  // ============================================
-  // EVENT: TYPING INDICATOR
-  // ============================================
-  socket.on('typing', (data) => {
-    const { receiverId, isTyping, userId } = data;
-    const receiverSocketId = onlineUsers.get(receiverId);
-
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('user_typing', {
-        userId,
-        isTyping,
-      });
-    }
-  });
-
-  // ============================================
-  // EVENT: DISCONNECT
-  // ============================================
-  socket.on('disconnect', async () => {
-    console.log('❌ Client disconnected:', socket.id);
-
-    let disconnectedUserId = null;
-    for (const [userId, socketId] of onlineUsers.entries()) {
-      if (socketId === socket.id) {
-        disconnectedUserId = userId;
-        onlineUsers.delete(userId);
-        break;
-      }
-    }
-
-    if (disconnectedUserId) {
-      try {
-        await User.findByIdAndUpdate(disconnectedUserId, {
-          isOnline: false,
-          lastSeen: new Date(),
-          socketId: '',
-        });
-
-        io.emit('user_status', {
-          userId: disconnectedUserId,
-          isOnline: false,
-        });
-      } catch (error) {
-        console.error('❌ Error updating user status:', error);
-      }
-    }
-  });
+// Verify transporter configuration
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ Email transporter error:', error);
+  } else {
+    console.log('✅ Email server is ready to send emails');
+  }
 });
 
-// ============================================
-// REST API ROUTES
-// ============================================
-
-// Health check
+// Health check endpoint
 app.get('/', (req, res) => {
   res.json({ 
-    status: 'Server is running',
-    message: 'Chat API Server',
+    status: 'OK', 
+    message: 'OTP Email Service is running',
     timestamp: new Date().toISOString()
   });
 });
 
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK',
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-    onlineUsers: onlineUsers.size
-  });
-});
-
-// ============================================
-// USER ROUTES
-// ============================================
-
-// Create/Register User
-app.post('/api/users/register', async (req, res) => {
+// Send OTP Email endpoint
+app.post('/send-otp', async (req, res) => {
   try {
-    const { name, email, phone, avatar } = req.body;
+    const { email, otp } = req.body;
 
-    // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    user = await User.create({
-      name,
-      email,
-      phone,
-      avatar: avatar || '',
-    });
-
-    res.status(201).json({
-      success: true,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        avatar: user.avatar,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get user by ID
-app.get('/api/users/:userId', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId).select('-socketId');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get all users (for user list)
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find().select('-socketId').sort({ name: 1 });
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============================================
-// CONVERSATION ROUTES
-// ============================================
-
-// Get user's conversations
-app.get('/api/conversations/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const conversations = await Conversation.find({
-      participants: userId,
-    })
-      .populate('participants', 'name avatar isOnline lastSeen')
-      .populate('lastMessage')
-      .sort({ lastMessageTime: -1 });
-
-    res.json(conversations);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Create or get conversation
-app.post('/api/conversations', async (req, res) => {
-  try {
-    const { userId1, userId2 } = req.body;
-
-    // Check if conversation exists
-    let conversation = await Conversation.findOne({
-      participants: { $all: [userId1, userId2] },
-    }).populate('participants', 'name avatar isOnline lastSeen');
-
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [userId1, userId2],
+    // Validation
+    if (!email || !otp) {
+      return res. status(400).json({ 
+        success: false, 
+        error: 'Email and OTP are required' 
       });
-
-      await conversation.populate('participants', 'name avatar isOnline lastSeen');
     }
 
-    res.json(conversation);
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex. test(email)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid email format' 
+      });
+    }
+
+    console.log(`📧 Sending OTP to: ${email}`);
+
+    // Email HTML template
+    const mailOptions = {
+      from: `"Your App Name" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Email Verification - Your OTP Code',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              background-color: #f4f4f4;
+              margin: 0;
+              padding:  0;
+            }
+            .email-container {
+              max-width: 600px;
+              margin: 40px auto;
+              background-color: #ffffff;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            .header {
+              background:  linear-gradient(135deg, #D96073 0%, #C54D61 100%);
+              padding: 40px 30px;
+              text-align:  center;
+            }
+            .header h1 {
+              color: #ffffff;
+              margin: 0;
+              font-size: 28px;
+              font-weight:  700;
+            }
+            .content {
+              padding: 40px 30px;
+            }
+            .greeting {
+              font-size: 18px;
+              color: #2D1B47;
+              margin-bottom: 20px;
+              font-weight: 600;
+            }
+            .message {
+              color: #7A6B7A;
+              line-height: 1.8;
+              font-size: 16px;
+              margin-bottom: 30px;
+            }
+            .otp-box {
+              background:  linear-gradient(135deg, #EDE2E0 0%, #EDCFC9 100%);
+              padding: 30px;
+              text-align: center;
+              border-radius: 12px;
+              margin: 30px 0;
+              border: 2px dashed #D96073;
+            }
+            .otp-label {
+              font-size: 14px;
+              color: #7A6B7A;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 10px;
+            }
+            .otp-code {
+              font-size: 42px;
+              font-weight:  bold;
+              color: #D96073;
+              letter-spacing: 12px;
+              font-family: 'Courier New', monospace;
+              margin:  10px 0;
+            }
+            .validity {
+              background-color: #FFF3E0;
+              padding: 15px;
+              border-radius: 8px;
+              border-left: 4px solid #FF9800;
+              margin: 20px 0;
+            }
+            .validity-text {
+              color: #E65100;
+              font-size:  14px;
+              margin:  0;
+              font-weight: 600;
+            }
+            .warning {
+              background-color: #FFF3F3;
+              padding: 15px;
+              border-radius: 8px;
+              border-left: 4px solid #D96073;
+              margin: 20px 0;
+            }
+            .warning-text {
+              color: #7A6B7A;
+              font-size: 14px;
+              margin: 0;
+            }
+            .footer {
+              background-color: #F8F8F8;
+              padding: 30px;
+              text-align: center;
+              border-top: 1px solid #EEEEEE;
+            }
+            .footer-text {
+              color: #8B7B8B;
+              font-size:  13px;
+              line-height: 1.6;
+              margin:  5px 0;
+            }
+            .app-name {
+              color: #D96073;
+              font-weight: 700;
+            }
+            @media only screen and (max-width: 600px) {
+              .email-container {
+                margin: 20px 10px;
+              }
+              . content {
+                padding: 30px 20px;
+              }
+              .otp-code {
+                font-size: 36px;
+                letter-spacing: 8px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header">
+              <h1>🔐 Email Verification</h1>
+            </div>
+            
+            <div class="content">
+              <p class="greeting">Hello! </p>
+              
+              <p class="message">
+                Thank you for signing up with <span class="app-name">Your App Name</span>! 
+                To complete your registration, please verify your email address using the code below: 
+              </p>
+              
+              <div class="otp-box">
+                <div class="otp-label">Your Verification Code</div>
+                <div class="otp-code">${otp}</div>
+              </div>
+              
+              <div class="validity">
+                <p class="validity-text">⏰ This code will expire in 10 minutes</p>
+              </div>
+              
+              <div class="warning">
+                <p class="warning-text">
+                  🔒 If you didn't request this code, please ignore this email. 
+                  Your account security is important to us.
+                </p>
+              </div>
+              
+              <p class="message">
+                Need help? Feel free to contact our support team. 
+              </p>
+            </div>
+            
+            <div class="footer">
+              <p class="footer-text">This is an automated email. Please do not reply.</p>
+              <p class="footer-text">&copy; ${new Date().getFullYear()} <span class="app-name">Your App Name</span>. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      // Plain text version (fallback)
+      text: `
+        Email Verification
+        
+        Hello!
+        
+        Thank you for signing up with Your App Name! 
+        
+        Your verification code is: ${otp}
+        
+        This code will expire in 10 minutes.
+        
+        If you didn't request this code, please ignore this email.
+        
+        © ${new Date().getFullYear()} Your App Name. All rights reserved.
+      `,
+    };
+
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log('✅ Email sent successfully:', info.messageId);
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'OTP sent successfully',
+      messageId: info.messageId,
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error sending email:', error);
+    
+    // Handle specific errors
+    let errorMessage = 'Failed to send email';
+    
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Email authentication failed.  Check credentials.';
+    } else if (error.code === 'ECONNECTION') {
+      errorMessage = 'Could not connect to email server. ';
+    } else if (error.responseCode === 550) {
+      errorMessage = 'Invalid recipient email address.';
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message :  undefined,
+    });
   }
 });
 
-// ============================================
-// MESSAGE ROUTES
-// ============================================
-
-// Get messages for a conversation
-app.get('/api/messages/:conversationId', async (req, res) => {
+// Verify OTP endpoint (optional - if you want backend verification)
+app.post('/verify-otp', async (req, res) => {
   try {
-    const { conversationId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { email, otp } = req.body;
 
-    const messages = await Message.find({ conversationId })
-      .populate('sender', 'name avatar')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    if (!email || !otp) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email and OTP are required' 
+      });
+    }
 
-    res.json(messages.reverse());
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    // If using Firebase Admin
+    if (admin.apps.length > 0) {
+      const db = admin.firestore();
+      const otpDoc = await db.collection('OTPVerification').doc(email).get();
 
-// Mark messages as read
-app.post('/api/messages/mark-read', async (req, res) => {
-  try {
-    const { conversationId, userId } = req.body;
-
-    await Message.updateMany(
-      {
-        conversationId,
-        receiver: userId,
-        isRead: false,
-      },
-      {
-        isRead: true,
-        readAt: new Date(),
+      if (!otpDoc.exists) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'OTP not found' 
+        });
       }
-    );
 
-    res.json({ success: true });
+      const otpData = otpDoc. data();
+      const currentTime = new Date();
+      const expirationTime = otpData.expiresAt. toDate();
+
+      // Check expiration
+      if (currentTime > expirationTime) {
+        await db.collection('OTPVerification').doc(email).delete();
+        return res.status(400).json({ 
+          success: false, 
+          error: 'OTP has expired' 
+        });
+      }
+
+      // Check if already verified
+      if (otpData.verified) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'OTP already used' 
+        });
+      }
+
+      // Verify OTP
+      if (otpData.otp === otp) {
+        await db.collection('OTPVerification').doc(email).update({
+          verified: true,
+          verifiedAt: admin.firestore. FieldValue.serverTimestamp(),
+        });
+
+        return res. status(200).json({ 
+          success: true, 
+          message: 'OTP verified successfully' 
+        });
+      } else {
+        // Increment attempts
+        await db.collection('OTPVerification').doc(email).update({
+          attempts: admin.firestore.FieldValue. increment(1),
+        });
+
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid OTP' 
+        });
+      }
+    } else {
+      return res.status(501).json({ 
+        success: false, 
+        error: 'Verification not implemented' 
+      });
+    }
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get unread message count
-app.get('/api/messages/unread/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const unreadCount = await Message.countDocuments({
-      receiver: userId,
-      isRead: false,
+    console.error('❌ Verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Verification failed' 
     });
-
-    res.json({ unreadCount });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 
-// ============================================
-// IMAGE UPLOAD (Simple Base64 Storage)
-// ============================================
-app.post('/api/upload', async (req, res) => {
-  try {
-    const { image, filename } = req.body;
-    
-    // In production, upload to Cloudinary/AWS S3
-    // For now, we'll just return a placeholder
-    // You can store base64 directly in MongoDB or use cloud storage
-    
-    const imageUrl = `data:image/jpeg;base64,${image}`;
-    
-    res.json({ 
-      success: true,
-      url: imageUrl 
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============================================
-// ERROR HANDLING
-// ============================================
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err);
+  console.error('❌ Server error:', err);
   res.status(500).json({ 
-    error: 'Internal Server Error',
-    message: err.message 
+    success: false, 
+    error: 'Internal server error' 
   });
 });
 
-// ============================================
-// START SERVER
-// ============================================
-const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => {
-  console.log(`
-  ╔════════════════════════════════════════╗
-  ║   🚀 Chat Server Running               ║
-  ║   📡 Port: ${PORT}                       ║
-  ║   🌐 http://localhost:${PORT}            ║
-  ║   💾 MongoDB: Connected                ║
-  ║   ⚡ Socket.IO: Active                 ║
-  ╚════════════════════════════════════════╝
-  `);
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 OTP Email Service running on port ${PORT}`);
+  console.log(`📧 Email user: ${process.env.EMAIL_USER}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

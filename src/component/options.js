@@ -9,6 +9,7 @@ import {
   Dimensions,
   PixelRatio,
   Platform,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -210,11 +211,23 @@ const options = ({navigation}) => {
   });
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
+    <LinearGradient
+      colors={['#E5D9E5', '#D5C5D9', '#C8B5DB']}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={styles.container}
+    >
+      <StatusBar barStyle="dark-content" backgroundColor="#E5D9E5" />
       
       {/* Header */}
       <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/png.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
         <Text style={styles.title}>Luci</Text>
         <Text style={styles.subtitle}>Book your favorite massage</Text>
       </View>
@@ -223,109 +236,109 @@ const options = ({navigation}) => {
       <View style={styles.phoneFrameContainer}>
         {/* Phone Bezel Wrapper */}
         <View style={styles.phoneBezeLWrapper}>
-          {/* Top Notch */}
-          <View style={styles.notchContainer}>
-            <View style={styles.notch} />
-          </View>
+            {/* Top Notch */}
+            <View style={styles.notchContainer}>
+              <View style={styles.notch} />
+            </View>
 
-          {/* Phone Border Container */}
-          <View style={styles.phoneBorderContainer}>
-            {/* Phone Screen Content */}
-            <View style={styles.phoneScreen}>
-              {/* Date & Time Display */}
-              <View style={styles.dateTimeContainer}>
-                <Text style={styles.dateText}>Monday, October 31</Text>
-                <Text style={styles.timeText}>9:41</Text>
+            {/* Phone Border Container with gradient sides */}
+            <View style={styles.phoneBorderContainer}>
+              {/* Phone Screen Content */}
+              <View style={styles.phoneScreen}>
+                {/* Date & Time Display */}
+                <View style={styles.dateTimeContainer}>
+                  <Text style={styles.dateText}>Monday, October 31</Text>
+                  <Text style={styles.timeText}>9:41</Text>
+                </View>
+
+                {/* Animated Notification Cards */}
+                <Animated.View 
+                  style={[
+                    styles.cardsContainer,
+                    {
+                      opacity: fadeAnim,
+                    }
+                  ]}
+                >
+                  {/* Zen Thai Studio Card */}
+                  <Animated.View
+                    style={[
+                      styles.notificationCard,
+                      styles.cardShadowContainer,
+                      {
+                        transform: [
+                          { translateY: Animated.add(slideAnim1, bounce1Interpolate) },
+                          { scale: scaleAnim1 },
+                          { rotate: card1RotateInterpolate }
+                        ],
+                      }
+                    ]}
+                  >
+                    <Animated.View 
+                      style={[
+                        styles.cardGlowEffect,
+                        { opacity: glow1Interpolate }
+                      ]} 
+                    />
+                    <View style={styles.cardBackground} />
+                    <View style={styles.cardContent}>
+                      <View style={styles.iconContainer}>
+                        <View style={styles.zenIcon}>
+                          <Text style={styles.omSymbol}>ॐ</Text>
+                        </View>
+                      </View>
+                      <View style={styles.textContent}>
+                        <Text style={styles.serviceName}>Zen Thai Studio</Text>
+                        <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
+                      </View>
+                      <Text style={styles.timestamp}>now</Text>
+                    </View>
+                  </Animated.View>
+
+                  {/* Caccoon Healing Card */}
+                  <Animated.View
+                    style={[
+                      styles.notificationCard,
+                      styles.cardShadowContainer,
+                      {
+                        transform: [
+                          { translateY: Animated.add(slideAnim2, bounce2Interpolate) },
+                          { scale: scaleAnim2 },
+                          { rotate: card2RotateInterpolate }
+                        ],
+                      }
+                    ]}
+                  >
+                    <Animated.View 
+                      style={[
+                        styles.cardGlowEffect,
+                        { opacity: glow2Interpolate }
+                      ]} 
+                    />
+                    <View style={styles.cardBackground} />
+                    <View style={styles.cardContent}>
+                      <View style={styles.iconContainer}>
+                        <View style={styles.caccoonIcon}>
+                          <Text style={styles.flowerSymbol}>🌸</Text>
+                        </View>
+                      </View>
+                      <View style={styles.textContent}>
+                        <View style={styles.serviceNameContainer}>
+                          <Text style={styles.serviceName}>Caccoon </Text>
+                          <Text style={styles.serviceName}>Healing</Text>
+                        </View>
+                        <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
+                      </View>
+                      <Text style={styles.timestamp}>6:30 A.M</Text>
+                    </View>
+                  </Animated.View>
+                </Animated.View>
               </View>
-
-              {/* Animated Notification Cards */}
-              <Animated.View 
-                style={[
-                  styles.cardsContainer,
-                  {
-                    opacity: fadeAnim,
-                  }
-                ]}
-              >
-                {/* Zen Thai Studio Card */}
-                <Animated.View
-                  style={[
-                    styles.notificationCard,
-                    styles.cardShadowContainer,
-                    {
-                      transform: [
-                        { translateY: Animated.add(slideAnim1, bounce1Interpolate) },
-                        { scale: scaleAnim1 },
-                        { rotate: card1RotateInterpolate }
-                      ],
-                    }
-                  ]}
-                >
-                  <Animated.View 
-                    style={[
-                      styles.cardGlowEffect,
-                      { opacity: glow1Interpolate }
-                    ]} 
-                  />
-                  <View style={styles.cardBackground} />
-                  <View style={styles.cardContent}>
-                    <View style={styles.iconContainer}>
-                      <View style={styles.zenIcon}>
-                        <Text style={styles.omSymbol}>ॐ</Text>
-                      </View>
-                    </View>
-                    <View style={styles.textContent}>
-                      <Text style={styles.serviceName}>Zen Thai Studio</Text>
-                      <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
-                    </View>
-                    <Text style={styles.timestamp}>now</Text>
-                  </View>
-                </Animated.View>
-
-                {/* Caccoon Healing Card */}
-                <Animated.View
-                  style={[
-                    styles.notificationCard,
-                    styles.cardShadowContainer,
-                    {
-                      transform: [
-                        { translateY: Animated.add(slideAnim2, bounce2Interpolate) },
-                        { scale: scaleAnim2 },
-                        { rotate: card2RotateInterpolate }
-                      ],
-                    }
-                  ]}
-                >
-                  <Animated.View 
-                    style={[
-                      styles.cardGlowEffect,
-                      { opacity: glow2Interpolate }
-                    ]} 
-                  />
-                  <View style={styles.cardBackground} />
-                  <View style={styles.cardContent}>
-                    <View style={styles.iconContainer}>
-                      <View style={styles.caccoonIcon}>
-                        <Text style={styles.flowerSymbol}>🌸</Text>
-                      </View>
-                    </View>
-                    <View style={styles.textContent}>
-                      <View style={styles.serviceNameContainer}>
-                        <Text style={styles.serviceName}>Caccoon </Text>
-                        <Text style={styles.strikethrough}>Healing</Text>
-                      </View>
-                      <Text style={styles.serviceMessage} numberOfLines={1}>thank you for book.....</Text>
-                    </View>
-                    <Text style={styles.timestamp}>6:30 A.M</Text>
-                  </View>
-                </Animated.View>
-              </Animated.View>
             </View>
           </View>
-        </View>
       </View>
 
-      {/* Bottom Curved Arch Section with Blur */}
+      {/* Bottom Curved Arch Section */}
       <View style={styles.bottomArchContainer}>
         <Svg
           height="100%"
@@ -336,34 +349,21 @@ const options = ({navigation}) => {
         >
           <Defs>
             <SvgLinearGradient id="archGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="rgba(225, 210, 240, 0.6)" stopOpacity="1" />
-              <Stop offset="25%" stopColor="rgba(215, 195, 235, 0.75)" stopOpacity="1" />
-              <Stop offset="50%" stopColor="rgba(208, 188, 228, 0.88)" stopOpacity="1" />
-              <Stop offset="100%" stopColor="rgba(200, 181, 219, 1)" stopOpacity="1" />
+              <Stop offset="0%" stopColor="rgba(200, 181, 219, 0)" stopOpacity="1" />
+              <Stop offset="40%" stopColor="rgba(200, 181, 219, 0.4)" stopOpacity="1" />
+              <Stop offset="100%" stopColor="rgba(200, 181, 219, 0.95)" stopOpacity="1" />
             </SvgLinearGradient>
           </Defs>
           {/* Upside-down arch/dome shape */}
           <Path
             d={`M 0 0
-                L 0 60
-                Q ${SCREEN_WIDTH * 0.5} 0, ${SCREEN_WIDTH} 60
+                L 0 80
+                Q ${SCREEN_WIDTH * 0.5} 0, ${SCREEN_WIDTH} 80
                 L ${SCREEN_WIDTH} 250
                 L 0 250 Z`}
             fill="url(#archGradient)"
           />
         </Svg>
-        
-        {/* Blur overlay */}
-        {Platform.OS === 'ios' ? (
-          <BlurView
-            style={styles.blurOverlay}
-            blurType="light"
-            blurAmount={15}
-            reducedTransparencyFallbackColor="rgba(210, 190, 240, 0.75)"
-          />
-        ) : (
-          <View style={styles.androidBlurOverlay} />
-        )}
       </View>
 
       {/* Bottom Buttons */}
@@ -384,14 +384,13 @@ const options = ({navigation}) => {
           <Text style={styles.loginText}>Login</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EDE2E0',
   },
   header: {
     alignItems: 'center',
@@ -399,6 +398,19 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(20),
     paddingHorizontal: moderateScale(30),
     zIndex: 10,
+  },
+  logoContainer: {
+    width: moderateScale(64),
+    height: moderateScale(64),
+    marginBottom: moderateScale(0),
+    alignItems: 'center',
+    justifyContent: 'center',
+  
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
+  
   },
   title: {
     fontSize: scaleFont(48),
@@ -594,7 +606,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: verticalScale(250),
+    height: verticalScale(280),
     zIndex: 5,
     overflow: 'hidden',
   },
@@ -604,14 +616,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  blurOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-
   buttonsContainer: {
     position: 'absolute',
     bottom: verticalScale(40),

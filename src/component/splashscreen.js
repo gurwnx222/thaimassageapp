@@ -1,52 +1,45 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { View, StyleSheet, StatusBar, Image, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const ICON_SIZE = 96;
+const BG_SIZE = 112;
 
 const SplashScreen = () => {
   const navigation = useNavigation();
 
   useEffect(() => {
-    // Wait for 3 seconds, then navigate to options screen
     const timer = setTimeout(() => {
       navigation.replace('options');
     }, 3000);
 
-    // Clean up timer when component unmounts
     return () => clearTimeout(timer);
   }, [navigation]);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#C8B5DB" />
-      <View style={styles.background}>
-        <View style={styles.iconContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#E6D9FB" />
+      <LinearGradient
+        colors={['#E6D9FB', '#F1DCE7']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.gradient}
+      >
+        <View style={styles.content}>
           <View style={styles.iconBackground}>
-            <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
-              <Circle cx="12" cy="10" r="2.5" fill="#2D1B47" />
-              <Path
-                d="M7 13c0-.8.7-1.5 1.5-1.5h7c.8 0 1.5.7 1.5 1.5v2H7v-2z"
-                fill="#2D1B47"
-              />
-              <Path
-                d="M5 16h14c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1v-2c0-.6.4-1 1-1z"
-                fill="#2D1B47"
-              />
-              <Path
-                d="M21 12c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5-1.5-.7-1.5-1.5.7-1.5 1.5-1.5z"
-                fill="#2D1B47"
-              />
-              <Path
-                d="M22.5 13.5c1 0 2 .5 2 1.5s-1 1.5-2 1.5"
-                stroke="#2D1B47"
-                strokeWidth="1"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </Svg>
+            <Image
+              source={require('../assets/png.png')}
+              style={styles.icon}
+              resizeMode="contain"
+              accessible
+              accessibilityLabel="App icon"
+            />
           </View>
         </View>
-      </View>
+      </LinearGradient>
     </View>
   );
 };
@@ -55,28 +48,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  background: {
+  gradient: {
     flex: 1,
-    backgroundColor: '#C8B5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  iconContainer: {
-    justifyContent: 'center',
+  content: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   iconBackground: {
-    width: 80,
-    height: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    width: BG_SIZE,
+    height: BG_SIZE,
     borderRadius: 20,
-    justifyContent: 'center',
+    backgroundColor: '#CDB7FF',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.6,
+    borderColor: 'rgba(0,0,0,0.05)',
+    // iOS shadow properties
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    // Android shadow property
+    elevation: 12,
+  },
+  icon: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
   },
 });
 

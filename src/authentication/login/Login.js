@@ -18,6 +18,7 @@ import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useLanguage } from '../../context/LanguageContext';
 import Svg, { Path } from 'react-native-svg';
+import TermsAndConditions from '../../context/TermsAndConditions'; 
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,7 +28,7 @@ const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
 const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
 const scaleFont = (size) => {
   const scaledSize = (SCREEN_WIDTH / 375) * size;
-  return Math.round(PixelRatio.roundToNearestPixel(scaledSize));
+  return Math. round(PixelRatio. roundToNearestPixel(scaledSize));
 };
 
 // Responsive dimensions
@@ -56,6 +57,8 @@ const GoogleLogo = ({ size = 20 }) => (
   </Svg>
 );
 
+
+
 const Login = ({ navigation }) => {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
@@ -68,6 +71,7 @@ const Login = ({ navigation }) => {
   const [passwordError, setPasswordError] = useState('');
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false); // Terms modal state
   
   // Animation values
   const shakeAnimation = new Animated.Value(0);
@@ -78,7 +82,7 @@ const Login = ({ navigation }) => {
     const configureGoogleSignIn = async () => {
       try {
         await GoogleSignin.configure({
-          webClientId: '460156669437-aruvatddasgqkng7v7se6c7nrfit3f5q.apps.googleusercontent.com',
+          webClientId:'164432241102-2ubmgo9etcjv28dlqrdqgl4plsrlpv8j.apps.googleusercontent.com',
           offlineAccess: true,
           hostedDomain: '',
           forceCodeForRefreshToken: true,
@@ -98,7 +102,7 @@ const Login = ({ navigation }) => {
       Animated.sequence([
         Animated.timing(successAnimation, {
           toValue: 1,
-          duration: 300,
+          duration:  300,
           useNativeDriver: true,
         }),
       ]).start();
@@ -123,58 +127,49 @@ const Login = ({ navigation }) => {
     return emailRegex.test(email);
   };
 
-  // Save user data to Firestore (for Google Sign-In) - UPDATED to preserve existing name
-  const saveUserToFirestore = async (userId, userData) => {
+  // Save user data to Firestore (for Google Sign-In)
+  const saveUserToFirestore = async (userId, userData, isExistingUser = false) => {
     try {
-      console.log('Saving user data to Firestore:', { userId, userData });
+      const safeUserData = userData || {};
       
-      // Check if user document already exists
-      const userDoc = await firestore()
-        .collection('Useraccount')
-        .doc(userId)
-        .get();
-
-      if (userDoc.exists) {
-        // User exists - ONLY update email and photoURL, preserve existing name
-        const existingData = userDoc.data();
-        console.log('Existing user data:', existingData);
+      if (isExistingUser) {
+        const userDoc = await firestore()
+          .collection('Useraccount')
+          .doc(userId)
+          .get();
+        
+        const existingData = userDoc.exists ? userDoc.data() || {} : {};
         
         await firestore()
           .collection('Useraccount')
           .doc(userId)
           .set({
-            // Preserve existing name if it exists, otherwise use Google name
-            name: existingData.name || userData.name || '',
-            email: userData.email || existingData.email || '',
-            photoURL: userData.photoURL || existingData.photoURL || '',
-            // Preserve existing gender and location
+            name: existingData.name || safeUserData.name || '',
+            email: safeUserData.email || existingData.email || '',
+            photoURL: safeUserData.photoURL || existingData.photoURL || '',
             gender: existingData.gender || '',
             location: existingData.location || '',
+            emailVerified: safeUserData.emailVerified !== undefined ? safeUserData.emailVerified : existingData.emailVerified || false,
             updatedAt: firestore.FieldValue.serverTimestamp(),
           }, { merge: true });
-        
-        console.log('Existing user data updated in Firestore (name preserved)');
       } else {
-        // New user, create document with Google name (will be updated in profile screen)
         await firestore()
           .collection('Useraccount')
           .doc(userId)
           .set({
-            name: userData.name || '',
-            email: userData.email || '',
-            gender: userData.gender || '',
-            location: userData.location || '',
-            photoURL: userData.photoURL || '',
+            name: safeUserData.name || '',
+            email: safeUserData.email || '',
+            gender: '',
+            location: '',
+            photoURL: safeUserData.photoURL || '',
+            emailVerified: safeUserData.emailVerified || false,
             createdAt: firestore.FieldValue.serverTimestamp(),
             updatedAt: firestore.FieldValue.serverTimestamp(),
           });
-        
-        console.log('New user data saved to Firestore');
       }
       
       return { success: true };
     } catch (error) {
-      console.error('Error saving user to Firestore:', error);
       return { success: false, error: error.message };
     }
   };
@@ -190,7 +185,7 @@ const Login = ({ navigation }) => {
       if (userDoc.exists) {
         const userData = userDoc.data();
         
-        if (!userData) {
+        if (! userData) {
           console.log('User document exists but data is undefined');
           return { complete: false, needsLocation: false, needsProfile: true };
         }
@@ -220,19 +215,19 @@ const Login = ({ navigation }) => {
       case 'auth/invalid-email':
         return t('login.invalidCredentials');
       case 'auth/user-disabled':
-        return t('login.userDisabled');
+        return t('login. userDisabled');
       case 'auth/user-not-found':
         return t('login.userNotFound');
       case 'auth/wrong-password':
         return t('login.wrongPassword');
       case 'auth/invalid-credential':
-        return t('login.invalidCredential');
+        return t('login. invalidCredential');
       case 'auth/network-request-failed':
         return t('login.networkError');
       case 'auth/too-many-requests':
         return t('login.tooManyRequests');
       default:
-        return t('login.unexpectedError');
+        return t('login. unexpectedError');
     }
   };
 
@@ -242,7 +237,7 @@ const Login = ({ navigation }) => {
       const userCredential = await auth().signInWithEmailAndPassword(email, password);
       const user = userCredential.user;
       
-      console.log('User logged in successfully:', user.uid);
+      console.log('User logged in successfully:', user. uid);
       
       return {
         success: true,
@@ -275,13 +270,13 @@ const Login = ({ navigation }) => {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       console.log('Play Services available');
       
-      const signInResult = await GoogleSignin.signIn();
+      const signInResult = await GoogleSignin. signIn();
       console.log('Google Sign-In result:', signInResult);
       
       let idToken, user;
       
       if (signInResult.type === 'success') {
-        idToken = signInResult.data?.idToken;
+        idToken = signInResult.data?. idToken;
         user = signInResult.data?.user;
         console.log('Using new response format');
       } else if (signInResult.idToken) {
@@ -290,7 +285,7 @@ const Login = ({ navigation }) => {
         console.log('Using old response format');
       }
       
-      if (!idToken) {
+      if (! idToken) {
         console.error('Sign-In result structure:', JSON.stringify(signInResult));
         throw new Error('Failed to get user credentials from Google Sign-In');
       }
@@ -301,20 +296,23 @@ const Login = ({ navigation }) => {
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
       const userCredential = await auth().signInWithCredential(googleCredential);
       
-      console.log('Firebase authentication successful:', userCredential.user);
+      const userDocBefore = await firestore()
+        .collection('Useraccount')
+        .doc(userCredential.user.uid)
+        .get();
       
-      // Save/update user data - this will preserve existing name for returning users
-      const saveResult = await saveUserToFirestore(userCredential.user.uid, {
-        name: user?.name || user?.givenName || userCredential.user.displayName || '',
-        email: user?.email || userCredential.user.email || '',
-        gender: '',
-        location: '',
-        photoURL: user?.photo || userCredential.user.photoURL || '',
-      });
+      const isExistingUser = userDocBefore.exists;
       
-      if (!saveResult.success) {
-        console.error('Failed to save user to Firestore, but authentication was successful');
-      }
+      const userEmail = user?.email || userCredential.user.email || '';
+      
+      await saveUserToFirestore(
+        userCredential.user.uid,
+        {
+          email: userEmail,
+          emailVerified: true,
+        },
+        isExistingUser
+      );
       
       // Check profile completeness and navigate accordingly
       const profileStatus = await checkUserProfile(userCredential.user.uid);
@@ -344,7 +342,7 @@ const Login = ({ navigation }) => {
             case statusCodes.SIGN_IN_CANCELLED:
               errorMessage = t('login.signInCancelled');
               break;
-            case statusCodes.IN_PROGRESS:
+            case statusCodes. IN_PROGRESS:
               errorMessage = t('login.signInInProgress');
               break;
             case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
@@ -373,7 +371,7 @@ const Login = ({ navigation }) => {
         }
       }
       
-      if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
+      if (error?. code !== statusCodes.SIGN_IN_CANCELLED) {
         setErrorMessage(errorMessage);
       }
       
@@ -391,11 +389,11 @@ const Login = ({ navigation }) => {
 
     let hasError = false;
 
-    if (!email.trim()) {
+    if (!email. trim()) {
       setEmailError('Please fill this field');
       shakeInput();
       hasError = true;
-    } else if (!isValidEmail(email)) {
+    } else if (! isValidEmail(email)) {
       setEmailError('Please enter a valid email');
       shakeInput();
       hasError = true;
@@ -412,7 +410,7 @@ const Login = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const result = await loginUser(email.trim(), password);
+      const result = await loginUser(email. trim(), password);
 
       if (result.success) {
         const profileStatus = await checkUserProfile(result.user.uid);
@@ -449,14 +447,14 @@ const Login = ({ navigation }) => {
     setResetPasswordSuccess(false);
 
     // Check if email field is empty
-    if (!email.trim()) {
+    if (!email. trim()) {
       setEmailError('Please fill this field');
       shakeInput();
       return;
     }
 
     // Validate email format
-    if (!isValidEmail(email.trim())) {
+    if (!isValidEmail(email. trim())) {
       setEmailError('Please enter a valid email');
       shakeInput();
       return;
@@ -485,7 +483,7 @@ const Login = ({ navigation }) => {
         case 'auth/user-not-found':
           errorMsg = 'No account found with this email';
           break;
-        case 'auth/invalid-email':
+        case 'auth/invalid-email': 
           errorMsg = 'Please enter a valid email';
           break;
         case 'auth/network-request-failed':
@@ -536,7 +534,7 @@ const Login = ({ navigation }) => {
         </View>
 
         {/* Error Message */}
-        {errorMessage ? (
+        {errorMessage ?  (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
@@ -548,7 +546,7 @@ const Login = ({ navigation }) => {
             style={[
               styles.successContainer,
               {
-                opacity: successAnimation,
+                opacity:  successAnimation,
                 transform: [{
                   translateY: successAnimation.interpolate({
                     inputRange: [0, 1],
@@ -595,7 +593,7 @@ const Login = ({ navigation }) => {
               autoCapitalize="none"
               editable={!loading && !googleLoading && !resetPasswordLoading}
             />
-            {emailError ? (
+            {emailError ?  (
               <View style={styles.fieldErrorContainer}>
                 <Text style={styles.fieldErrorText}>{emailError}</Text>
               </View>
@@ -638,7 +636,7 @@ const Login = ({ navigation }) => {
               />
             </TouchableOpacity>
             {passwordError ? (
-              <View style={styles.fieldErrorContainer}>
+              <View style={styles. fieldErrorContainer}>
                 <Text style={styles.fieldErrorText}>{passwordError}</Text>
               </View>
             ) : null}
@@ -655,7 +653,7 @@ const Login = ({ navigation }) => {
                 <View style={styles.forgotPasswordLoadingContainer}>
                   <ActivityIndicator size="small" color="#D96073" />
                   <Text style={[styles.forgotPasswordText, { marginLeft: moderateScale(8) }]}>
-                    Sending...
+                    Sending... 
                   </Text>
                 </View>
               ) : (
@@ -677,7 +675,7 @@ const Login = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.loginButtonText}>{t('login.loginButton')}</Text>
+              <Text style={styles.loginButtonText}>Login To Your Account</Text>
             )}
           </TouchableOpacity>
 
@@ -701,13 +699,31 @@ const Login = ({ navigation }) => {
                   <GoogleLogo size={moderateScale(20)} />
                 </View>
               )}
-              <Text style={styles.googleButtonText}>
-                {googleLoading ? t('login.loggingIn') : t('login.loginWithGoogle')}
+              <Text style={styles. googleButtonText}>
+                {googleLoading ? t('') : t('login.loginWithGoogle')}
               </Text>
             </View>
           </TouchableOpacity>
+
+          {/* Terms and Conditions Link */}
+          <View style={styles.termsContainer}>
+            <Text style={styles.termsPrefix}>By continuing, you agree to our </Text>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => setShowTermsModal(true)}
+              disabled={loading || googleLoading}
+            >
+              <Text style={styles.termsLink}>Terms and Conditions</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+
+      {/* Terms and Conditions Modal */}
+      <TermsAndConditions 
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </View>
   );
 };
@@ -739,7 +755,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(237, 207, 201, 0.8)',
     borderRadius: moderateScale(8),
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems:  'center',
     marginRight: moderateScale(12),
   },
   backArrow: {
@@ -764,7 +780,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: scaleFont(16),
+    fontSize:  scaleFont(16),
     color: '#7A6B7A',
     lineHeight: scaleFont(22),
     fontWeight: '400',
@@ -791,7 +807,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
     borderRadius: moderateScale(12),
     borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+    borderLeftColor:  '#4CAF50',
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
@@ -832,7 +848,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDCFC9',
     borderRadius: moderateScale(12),
     paddingHorizontal: moderateScale(20),
-    paddingVertical: moderateScale(16),
+    paddingVertical:  moderateScale(16),
     fontSize: scaleFont(16),
     color: '#2D1B47',
     fontWeight: '500',
@@ -858,11 +874,11 @@ const styles = StyleSheet.create({
   },
   fieldErrorText: {
     color: '#D96073',
-    fontSize: scaleFont(13),
+    fontSize:  scaleFont(13),
     fontWeight: '500',
   },
   eyeButton: {
-    position: 'absolute',
+    position:  'absolute',
     right: (SCREEN_WIDTH - INPUT_WIDTH) / 2 + moderateScale(20),
     top: moderateScale(16),
   },
@@ -885,7 +901,7 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontSize: scaleFont(14),
     color: '#D96073',
-    fontWeight: '500',
+    fontWeight:  '500',
   },
   forgotPasswordUnderline: {
     height: 1,
@@ -893,17 +909,17 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   loginButton: {
-    width: BUTTON_WIDTH,
+    width:  BUTTON_WIDTH,
     height: moderateScale(54),
     backgroundColor: '#D96073',
-    borderRadius: moderateScale(16),
+    borderRadius:  moderateScale(16),
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: moderateScale(2),
     marginBottom: moderateScale(30),
     shadowColor: '#262628',
     shadowOffset: {
-      width: 0,
+      width:  0,
       height: moderateScale(4),
     },
     shadowOpacity: 0.2,
@@ -928,12 +944,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   googleButton: {
-    width: BUTTON_WIDTH,
-    height: moderateScale(54),
+    width:  BUTTON_WIDTH,
+    height:  moderateScale(54),
     backgroundColor: 'rgba(237, 207, 201, 0.6)',
     borderRadius: moderateScale(12),
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems:  'center',
     borderWidth: 1,
     borderColor: 'rgba(237, 207, 201, 0.8)',
   },
@@ -944,13 +960,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  googleIconWrapper: {
+  googleIconWrapper:  {
     marginRight: moderateScale(12),
   },
   googleButtonText: {
     fontSize: scaleFont(16),
     color: '#5D4A5D',
     fontWeight: '500',
+  },
+  // NEW:  Terms and Conditions styles
+  termsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: moderateScale(20),
+    paddingHorizontal: moderateScale(20),
+  },
+  termsPrefix: {
+    fontSize: scaleFont(13),
+    color: '#7A6B7A',
+    fontWeight: '400',
+  },
+  termsLink: {
+    fontSize: scaleFont(13),
+    color: '#D96073',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
 

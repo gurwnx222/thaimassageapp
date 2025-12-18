@@ -18,8 +18,23 @@ import Setting from './src/setting/setting';
 import chat from './src/chat/Chat';
 import MessagesScreen from './src/chat/MessagesScreen';
 import NotificationsScreen from './src/notification/NotificationsScreen';
-
 const Stack = createNativeStackNavigator();
+
+// Helper: safe check for non-empty string
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+// Helper: determine whether location should be considered "present".
+// Accepts non-empty strings or non-empty objects (e.g. { city, region } or geo objects).
+function hasLocationValue(value) {
+  if (isNonEmptyString(value)) return true;
+  if (value && typeof value === 'object') {
+    // Consider object with at least one key as valid (e.g. { city: 'X' } or { latitude, longitude })
+    return Object.keys(value).length > 0;
+  }
+  return false;
+}
 
 export default function Navigation() {
   const [isLoading, setIsLoading] = useState(true);
@@ -32,14 +47,14 @@ export default function Navigation() {
   const checkAuthStatus = async () => {
     try {
       console.log('🔍 Checking authentication status...');
-      
+
       // Check if user is authenticated with Firebase
       const currentUser = auth().currentUser;
-      
+
       if (currentUser) {
         console.log('✅ User is logged in:', currentUser.uid);
         console.log('📧 Email:', currentUser.email);
-        
+
         // Check if user profile exists and is complete
         const userDoc = await firestore()
           .collection('Useraccount')
@@ -49,14 +64,14 @@ export default function Navigation() {
         if (userDoc.exists) {
           const userData = userDoc.data();
           console.log('📄 User data found:', userData);
-          
-          // Check if profile has all essential fields
-          const hasName = userData?.name && userData.name.trim() !== '';
-          const hasGender = userData?.gender && userData.gender.trim() !== '';
-          const hasLocation = userData?.location && userData.location.trim() !== '';
-          
+
+          // Safely check profile fields
+          const hasName = isNonEmptyString(userData?.name);
+          const hasGender = isNonEmptyString(userData?.gender);
+          const hasLocation = hasLocationValue(userData?.location);
+
           console.log('Profile check:', { hasName, hasGender, hasLocation });
-          
+
           if (hasName && hasGender && hasLocation) {
             // ✅ Profile is complete, go directly to Home
             console.log('✅ Profile complete, navigating to Home');
@@ -80,7 +95,7 @@ export default function Navigation() {
         } else {
           // ⚠️ User exists in Firebase Auth but no Firestore document
           console.log('⚠️ No Firestore document, creating and redirecting to profile');
-          
+
           // Create initial Firestore document
           await firestore()
             .collection('Useraccount')
@@ -94,7 +109,7 @@ export default function Navigation() {
               updatedAt: firestore.FieldValue.serverTimestamp(),
               profileCompleted: false,
             });
-          
+
           await AsyncStorage.setItem('userToken', currentUser.uid);
           await AsyncStorage.setItem('userEmail', currentUser.email || '');
           setInitialRoute('profile');
@@ -108,14 +123,14 @@ export default function Navigation() {
     } catch (error) {
       console.error('❌ Error checking auth status:', error);
       console.error('Error details:', error.message);
-      
+
       // On error, clear storage and show splash screen
       try {
         await AsyncStorage.multiRemove(['userToken', 'isRegistered', 'userEmail']);
       } catch (storageError) {
         console.error('Error clearing storage:', storageError);
       }
-      
+
       setInitialRoute('splash');
     } finally {
       setIsLoading(false);
@@ -132,7 +147,7 @@ export default function Navigation() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator 
+      <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{ headerShown: false }}
       >
@@ -148,8 +163,7 @@ export default function Navigation() {
         <Stack.Screen name="chat" component={chat} />
         <Stack.Screen name="massage" component={MessagesScreen} />
         <Stack.Screen name="notifications" component={NotificationsScreen} />
-
-
+    
       </Stack.Navigator>
     </NavigationContainer>
   );

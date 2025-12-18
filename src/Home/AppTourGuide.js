@@ -253,7 +253,7 @@ const AppTourGuide = ({ onComplete, tourSteps }) => {
                   </View>
                   <View style={styles.swipeDemoDivider} />
                   <View style={styles.swipeDemoItem}>
-                    <Icon name="arrow-right" size={moderateScale(24)} color="#51CF66" />
+                    <Icon name="arrow-right" size={moderateScale(24)} color="D96073" />
                     <Text style={styles.swipeDemoText}>Swipe Right{'\n'}Book</Text>
                   </View>
                 </View>
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D96073',
   },
   progressDotCompleted: {
-    backgroundColor: '#51CF66',
+    backgroundColor: '#D96073',
   },
   stepCounter: {
     fontSize: scaleFont(12),
