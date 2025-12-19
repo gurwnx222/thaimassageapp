@@ -17,16 +17,12 @@ import {
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
-import io from 'socket.io-client';
-import axios from 'axios';
+import { getSocket, disconnectSocket } from '../utils/socket';
+import { chatApi } from '../utils/chatApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
-
-// Backend URL - Replace with your actual backend URL
-const SOCKET_URL = 'http://192.168.100.11:5000'; // e.g., 'http://192.168.1.100:5000'
-const API_URL = 'http://192.168.100.11:5000/api';
 
 const ChatScreen = ({ route, navigation }) => {
   const { currentLanguage, t, formatText, translateDynamic } = useLanguage();
@@ -60,23 +56,20 @@ const ChatScreen = ({ route, navigation }) => {
 
   // Initialize Socket.IO connection
   useEffect(() => {
-    initializeSocket();
-    loadMessages();
+    if (currentUserId) {
+      initializeSocket();
+      loadMessages();
+    }
 
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
     };
-  }, []);
+  }, [currentUserId, conversationId]);
 
   const initializeSocket = () => {
-    socketRef.current = io(SOCKET_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    socketRef.current = getSocket(currentUserId);
 
     // Connection events
     socketRef.current.on('connect', () => {
@@ -92,28 +85,33 @@ const ChatScreen = ({ route, navigation }) => {
     socketRef.current.on('receive_message', (data) => {
       const { message } = data;
       
-      // Add message to state
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          id: message._id,
-          text: message.text,
-          time: formatTime(message.createdAt),
-          isSent: false,
-          seen: false,
-          image: message.imageUrl,
-        },
-      ]);
+      // Only add if it's for this conversation
+      if (message.conversationId === conversationId) {
+        // Add message to state
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            id: message._id,
+            text: message.text,
+            time: formatTime(message.createdAt),
+            isSent: false,
+            seen: false,
+            delivered: true,
+            image: message.imageUrl,
+            messageType: message.messageType || 'text',
+          },
+        ]);
 
-      // Mark as delivered
-      socketRef.current.emit('message_delivered', message._id);
-      
-      // Mark as read (since user is in the chat)
-      socketRef.current.emit('message_read', {
-        messageId: message._id,
-        conversationId: conversationId,
-        userId: currentUserId,
-      });
+        // Mark as delivered
+        socketRef.current.emit('message_delivered', message._id);
+        
+        // Mark as read (since user is in the chat)
+        socketRef.current.emit('message_read', {
+          messageId: message._id,
+          conversationId: conversationId,
+          userId: currentUserId,
+        });
+      }
     });
 
     // Message sent confirmation
@@ -175,31 +173,36 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const loadMessages = async () => {
+    if (!conversationId || !currentUserId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${API_URL}/messages/${conversationId}`
-      );
+      const messagesData = await chatApi.getMessages(conversationId);
 
-      const formattedMessages = response.data.map((msg) => ({
-        id: msg._id,
-        text: msg.text,
-        time: formatTime(msg.createdAt),
-        isSent: msg.sender._id === currentUserId,
-        seen: msg.isRead,
-        delivered: msg.isDelivered,
-        image: msg.imageUrl,
-      }));
+      const formattedMessages = messagesData.map((msg) => {
+        const senderId = typeof msg.sender === 'object' ? msg.sender._id : msg.sender;
+        return {
+          id: msg._id,
+          text: msg.text,
+          time: formatTime(msg.createdAt),
+          isSent: senderId === currentUserId,
+          seen: msg.isRead,
+          delivered: msg.isDelivered,
+          image: msg.imageUrl,
+          messageType: msg.messageType || 'text',
+        };
+      });
 
       setMessages(formattedMessages);
 
       // Mark all as read
-      await axios.post(`${API_URL}/messages/mark-read`, {
-        conversationId,
-        userId: currentUserId,
-      });
+      await chatApi.markMessagesAsRead(conversationId, currentUserId);
     } catch (error) {
       console.error('Error loading messages:', error);
+      Alert.alert(t('alerts.error'), 'Failed to load messages');
     } finally {
       setLoading(false);
     }
@@ -224,47 +227,54 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const handleSend = () => {
-    if (inputText.trim()) {
-      const tempId = Date.now().toString();
-      const newMessage = {
-        id: tempId,
-        tempId: tempId,
-        text: inputText,
-        time: formatTime(new Date()),
-        isSent: true,
-        seen: false,
-        delivered: false,
-      };
-
-      // Add message to UI immediately
-      setMessages([...messages, newMessage]);
-      
-      // Emit to server
-      socketRef.current.emit('send_message', {
-        conversationId: conversationId,
-        senderId: currentUserId,
-        receiverId: receiverId,
-        text: inputText,
-        messageType: 'text',
-        tempId: tempId,
-      });
-
-      setInputText('');
-      
-      // Stop typing indicator
-      socketRef.current.emit('typing', {
-        userId: currentUserId,
-        receiverId: receiverId,
-        isTyping: false,
-      });
+    if (!inputText.trim() || !socketRef.current || !socketRef.current.connected) {
+      if (!socketRef.current || !socketRef.current.connected) {
+        Alert.alert(t('alerts.error'), 'Not connected to server');
+      }
+      return;
     }
+
+    const tempId = Date.now().toString();
+    const messageText = inputText.trim();
+    const newMessage = {
+      id: tempId,
+      tempId: tempId,
+      text: messageText,
+      time: formatTime(new Date()),
+      isSent: true,
+      seen: false,
+      delivered: false,
+      messageType: 'text',
+    };
+
+    // Add message to UI immediately
+    setMessages([...messages, newMessage]);
+    setInputText('');
+    
+    // Emit to server
+    socketRef.current.emit('send_message', {
+      conversationId: conversationId,
+      senderId: currentUserId,
+      receiverId: receiverId,
+      text: messageText,
+      messageType: 'text',
+      tempId: tempId,
+    });
+    
+    // Stop typing indicator
+    socketRef.current.emit('typing', {
+      userId: currentUserId,
+      receiverId: receiverId,
+      isTyping: false,
+    });
   };
 
   const handleImagePicker = () => {
     const options = {
       mediaType: 'photo',
-      quality: 1,
+      quality: 0.8,
       selectionLimit: 1,
+      includeBase64: true,
     };
 
     launchImageLibrary(options, async (response) => {
@@ -272,31 +282,57 @@ const ChatScreen = ({ route, navigation }) => {
         console.log('User cancelled image picker');
       } else if (response.errorCode) {
         console.log('ImagePicker Error: ', response.errorMessage);
+        Alert.alert(t('alerts.error'), 'Failed to pick image');
       } else if (response.assets && response.assets.length > 0) {
-        const imageUri = response.assets[0].uri;
+        const asset = response.assets[0];
+        const imageUri = asset.uri;
+        const filename = asset.fileName || `image_${Date.now()}.jpg`;
         
-        const tempId = Date.now().toString();
-        const newMessage = {
-          id: tempId,
-          tempId: tempId,
-          image: imageUri,
-          time: formatTime(new Date()),
-          isSent: true,
-          seen: false,
-          delivered: false,
-        };
+        try {
+          let base64 = asset.base64;
+          
+          // If base64 is not available, use the URI directly (for now)
+          // In production, you might want to use react-native-fs or another library
+          if (!base64) {
+            // For now, send the local URI - backend will need to handle this
+            // Or you can implement a proper base64 conversion
+            base64 = imageUri;
+          }
+          
+          // Upload image to server
+          const uploadResult = await chatApi.uploadImage(base64, filename);
+          
+          const tempId = Date.now().toString();
+          const newMessage = {
+            id: tempId,
+            tempId: tempId,
+            image: uploadResult.url,
+            time: formatTime(new Date()),
+            isSent: true,
+            seen: false,
+            delivered: false,
+            messageType: 'image',
+          };
 
-        setMessages([...messages, newMessage]);
+          setMessages([...messages, newMessage]);
 
-        // Emit to server
-        socketRef.current.emit('send_message', {
-          conversationId: conversationId,
-          senderId: currentUserId,
-          receiverId: receiverId,
-          messageType: 'image',
-          imageUrl: imageUri,
-          tempId: tempId,
-        });
+          // Emit to server
+          if (socketRef.current && socketRef.current.connected) {
+            socketRef.current.emit('send_message', {
+              conversationId: conversationId,
+              senderId: currentUserId,
+              receiverId: receiverId,
+              messageType: 'image',
+              imageUrl: uploadResult.url,
+              tempId: tempId,
+            });
+          } else {
+            Alert.alert(t('alerts.error'), 'Not connected to server');
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          Alert.alert(t('alerts.error'), 'Failed to upload image');
+        }
       }
     });
   };
