@@ -54,7 +54,7 @@ const SWIPE_THRESHOLD = scale(100)
 const CARD_RAISE = verticalScale(40)
 
 // IMPORTANT: Update this to your actual backend URL
-const API_BASE_URL = "http://192.168.100.98:3000"
+const API_BASE_URL = "https://luci-server-useast.duckdns.org"
 
 const Homescreen = ({ navigation }) => {
   const { currentLanguage, t, formatText, translateDynamic } = useLanguage()
