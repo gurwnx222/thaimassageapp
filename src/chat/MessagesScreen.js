@@ -207,7 +207,7 @@ const MessagesScreen = ({ navigation }) => {
           time: translatedBookingTime,
         });
       }
-    } else {
+      } else {
       setTranslatedRecentChats(conversations);
       setTranslatedCurrentBooking(currentBooking);
     }

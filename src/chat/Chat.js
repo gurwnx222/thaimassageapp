@@ -57,8 +57,8 @@ const ChatScreen = ({ route, navigation }) => {
   // Initialize Socket.IO connection
   useEffect(() => {
     if (currentUserId) {
-      initializeSocket();
-      loadMessages();
+    initializeSocket();
+    loadMessages();
     }
 
     return () => {
@@ -87,30 +87,30 @@ const ChatScreen = ({ route, navigation }) => {
       
       // Only add if it's for this conversation
       if (message.conversationId === conversationId) {
-        // Add message to state
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            id: message._id,
-            text: message.text,
-            time: formatTime(message.createdAt),
-            isSent: false,
-            seen: false,
+      // Add message to state
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          id: message._id,
+          text: message.text,
+          time: formatTime(message.createdAt),
+          isSent: false,
+          seen: false,
             delivered: true,
-            image: message.imageUrl,
+          image: message.imageUrl,
             messageType: message.messageType || 'text',
-          },
-        ]);
+        },
+      ]);
 
-        // Mark as delivered
-        socketRef.current.emit('message_delivered', message._id);
-        
-        // Mark as read (since user is in the chat)
-        socketRef.current.emit('message_read', {
-          messageId: message._id,
-          conversationId: conversationId,
-          userId: currentUserId,
-        });
+      // Mark as delivered
+      socketRef.current.emit('message_delivered', message._id);
+      
+      // Mark as read (since user is in the chat)
+      socketRef.current.emit('message_read', {
+        messageId: message._id,
+        conversationId: conversationId,
+        userId: currentUserId,
+      });
       }
     });
 
@@ -185,13 +185,13 @@ const ChatScreen = ({ route, navigation }) => {
       const formattedMessages = messagesData.map((msg) => {
         const senderId = typeof msg.sender === 'object' ? msg.sender._id : msg.sender;
         return {
-          id: msg._id,
-          text: msg.text,
-          time: formatTime(msg.createdAt),
+        id: msg._id,
+        text: msg.text,
+        time: formatTime(msg.createdAt),
           isSent: senderId === currentUserId,
-          seen: msg.isRead,
-          delivered: msg.isDelivered,
-          image: msg.imageUrl,
+        seen: msg.isRead,
+        delivered: msg.isDelivered,
+        image: msg.imageUrl,
           messageType: msg.messageType || 'text',
         };
       });
@@ -234,39 +234,39 @@ const ChatScreen = ({ route, navigation }) => {
       return;
     }
 
-    const tempId = Date.now().toString();
+      const tempId = Date.now().toString();
     const messageText = inputText.trim();
-    const newMessage = {
-      id: tempId,
-      tempId: tempId,
+      const newMessage = {
+        id: tempId,
+        tempId: tempId,
       text: messageText,
-      time: formatTime(new Date()),
-      isSent: true,
-      seen: false,
-      delivered: false,
+        time: formatTime(new Date()),
+        isSent: true,
+        seen: false,
+        delivered: false,
       messageType: 'text',
-    };
+      };
 
-    // Add message to UI immediately
-    setMessages([...messages, newMessage]);
+      // Add message to UI immediately
+      setMessages([...messages, newMessage]);
     setInputText('');
-    
-    // Emit to server
-    socketRef.current.emit('send_message', {
-      conversationId: conversationId,
-      senderId: currentUserId,
-      receiverId: receiverId,
+      
+      // Emit to server
+      socketRef.current.emit('send_message', {
+        conversationId: conversationId,
+        senderId: currentUserId,
+        receiverId: receiverId,
       text: messageText,
-      messageType: 'text',
-      tempId: tempId,
-    });
-    
-    // Stop typing indicator
-    socketRef.current.emit('typing', {
-      userId: currentUserId,
-      receiverId: receiverId,
-      isTyping: false,
-    });
+        messageType: 'text',
+        tempId: tempId,
+      });
+      
+      // Stop typing indicator
+      socketRef.current.emit('typing', {
+        userId: currentUserId,
+        receiverId: receiverId,
+        isTyping: false,
+      });
   };
 
   const handleImagePicker = () => {
@@ -301,31 +301,31 @@ const ChatScreen = ({ route, navigation }) => {
           
           // Upload image to server
           const uploadResult = await chatApi.uploadImage(base64, filename);
-          
-          const tempId = Date.now().toString();
-          const newMessage = {
-            id: tempId,
-            tempId: tempId,
+        
+        const tempId = Date.now().toString();
+        const newMessage = {
+          id: tempId,
+          tempId: tempId,
             image: uploadResult.url,
-            time: formatTime(new Date()),
-            isSent: true,
-            seen: false,
-            delivered: false,
+          time: formatTime(new Date()),
+          isSent: true,
+          seen: false,
+          delivered: false,
             messageType: 'image',
-          };
+        };
 
-          setMessages([...messages, newMessage]);
+        setMessages([...messages, newMessage]);
 
-          // Emit to server
+        // Emit to server
           if (socketRef.current && socketRef.current.connected) {
-            socketRef.current.emit('send_message', {
-              conversationId: conversationId,
-              senderId: currentUserId,
-              receiverId: receiverId,
-              messageType: 'image',
+        socketRef.current.emit('send_message', {
+          conversationId: conversationId,
+          senderId: currentUserId,
+          receiverId: receiverId,
+          messageType: 'image',
               imageUrl: uploadResult.url,
-              tempId: tempId,
-            });
+          tempId: tempId,
+        });
           } else {
             Alert.alert(t('alerts.error'), 'Not connected to server');
           }

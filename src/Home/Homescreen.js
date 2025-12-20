@@ -23,6 +23,7 @@ import firestore from "@react-native-firebase/firestore"
 import { useLanguage } from "../context/LanguageContext"
 import BottomNav from "../component/BottomNav"
 import AppTourGuide from "./AppTourGuide"
+import { setupBookingListeners, navigateToChat } from "../utils/bookingSocket"
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window")
 
@@ -54,7 +55,11 @@ const SWIPE_THRESHOLD = scale(100)
 const CARD_RAISE = verticalScale(40)
 
 // IMPORTANT: Update this to your actual backend URL
-const API_BASE_URL = "http://192.168.100.98:3000"
+// ⚠️ WARNING: localhost won't work on physical devices!
+// For Android emulator: use "http://10.0.2.2:3000"
+// For physical device: use your computer's IP (e.g., "http://192.168.x.x:3000")
+// Find your IP: Mac/Linux: ifconfig | grep "inet " | grep -v 127.0.0.1
+const API_BASE_URL = "http://192.168.18.47:3000"
 
 const Homescreen = ({ navigation }) => {
   const { currentLanguage, t, formatText, translateDynamic } = useLanguage()
@@ -70,29 +75,137 @@ const Homescreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [firebaseUID, setFirebaseUID] = useState(null)
+  const [bookingInProgress, setBookingInProgress] = useState(false)
 
   const position = useRef(new Animated.ValueXY()).current
   const cardOpacity = useRef(new Animated.Value(1)).current
   const notificationButtonRef = useRef(null)
   const cardRef = useRef(null)
-  
+
   // Refs to store current studios data to avoid closure issues
   const studiosRef = useRef(studios)
   const translatedStudiosRef = useRef(translatedStudios)
   const currentIndexRef = useRef(currentIndex)
-  
+
   // Update refs when state changes
   useEffect(() => {
     studiosRef.current = studios
   }, [studios])
-  
+
   useEffect(() => {
     translatedStudiosRef.current = translatedStudios
   }, [translatedStudios])
-  
+
   useEffect(() => {
     currentIndexRef.current = currentIndex
   }, [currentIndex])
+
+  // Setup booking socket listeners
+  useEffect(() => {
+    if (!firebaseUID) return
+
+    const socket = setupBookingListeners(firebaseUID, {
+      onBookingAccepted: async ({ bookingId, booking, conversationId }) => {
+        console.log("✅ Booking accepted:", bookingId, conversationId)
+        console.log("📋 Booking data:", booking)
+        
+        // Extract salon owner ID from booking data
+        // The booking object might have salonOwnerId in different places
+        const salonOwnerId = booking?.salonOwnerId || 
+                            booking?.reciever?.salonOwnerID || 
+                            booking?.salonOwnerID || 
+                            null;
+        
+        console.log("👤 Extracted salonOwnerId:", salonOwnerId)
+        
+        Alert.alert(
+          t("home.bookingAccepted") || "Booking Accepted!",
+          t("home.bookingAcceptedMessage") || "Your booking request has been accepted. Would you like to open chat?",
+          [
+            {
+              text: t("home.openChat") || "Open Chat",
+              onPress: async () => {
+                // Navigate to chat
+                try {
+                  console.log("🚀 Opening chat with:", { conversationId, salonOwnerId })
+                  await navigateToChat(
+                    navigation,
+                    conversationId,
+                    salonOwnerId,
+                    booking?.salonOwnerName || "Salon Owner"
+                  )
+                  console.log("✅ Navigation to chat completed")
+                } catch (error) {
+                  console.error("❌ Error navigating to chat:", error)
+                  Alert.alert(
+                    t("alerts.error") || "Error",
+                    error.message || "Failed to open chat. Please try again later."
+                  )
+                }
+              },
+            },
+            {
+              text: t("home.ok") || "OK",
+              style: "cancel",
+            },
+          ]
+        )
+      },
+      onBookingRejected: ({ bookingId, booking }) => {
+        console.log("❌ Booking rejected:", bookingId)
+        Alert.alert(
+          t("home.bookingRejected") || "Booking Rejected",
+          t("home.bookingRejectedMessage") || "Your booking request has been rejected."
+        )
+      },
+      onChatRoomCreated: ({ conversationId, bookingId, salonOwnerId, salonOwnerName }) => {
+        console.log("💬 Chat room created:", conversationId)
+        // Show notification and offer to open chat
+        Alert.alert(
+          t("home.chatRoomCreated") || "Chat Room Created",
+          t("home.chatRoomCreatedMessage") || "A chat room has been created for your booking. Would you like to open it?",
+          [
+            {
+              text: t("home.openChat") || "Open Chat",
+              onPress: async () => {
+                try {
+                  await navigateToChat(
+                    navigation,
+                    conversationId,
+                    salonOwnerId,
+                    salonOwnerName || "Salon Owner"
+                  )
+                } catch (error) {
+                  console.error("Error navigating to chat:", error)
+                  Alert.alert(
+                    t("alerts.error") || "Error",
+                    "Failed to open chat. Please try again later."
+                  )
+                }
+              },
+            },
+            {
+              text: t("home.later") || "Later",
+              style: "cancel",
+            },
+          ]
+        )
+      },
+      onBookingStatusUpdate: ({ bookingId, status, booking }) => {
+        console.log("📬 Booking status updated:", bookingId, status)
+        // Update local state if needed
+      },
+    })
+
+    return () => {
+      // Cleanup listeners when component unmounts or firebaseUID changes
+      if (socket) {
+        socket.off("booking_status_update")
+        socket.off("chat_room_created")
+        socket.off("booking_notification")
+      }
+    }
+  }, [firebaseUID, navigation, t])
 
   // Define tour steps
   const tourSteps = [
@@ -161,7 +274,7 @@ const Homescreen = ({ navigation }) => {
   useEffect(() => {
     // Reset position for new current card
     position.setValue({ x: 0, y: 0 })
-    
+
     // Fade in new card smoothly
     cardOpacity.setValue(0)
     Animated.timing(cardOpacity, {
@@ -225,7 +338,9 @@ const Homescreen = ({ navigation }) => {
 
   // Fetch recommendations from backend (maps API response to UI model)
   const fetchRecommendations = async () => {
+    const startTime = Date.now()
     try {
+      console.log("🔄 Fetching recommendations...")
       setLoading(true)
       setError(null)
 
@@ -240,19 +355,22 @@ const Homescreen = ({ navigation }) => {
       const longitude = 67.0011
 
       const url = `${API_BASE_URL}/api/v1/recommendations/${uid}?limit=20&latitude=${latitude}&longitude=${longitude}`
-
+      console.log("🌐 Fetching from:", url)
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       })
+      const fetchTime = Date.now() - startTime
+      console.log(`⏱️ Fetch took ${fetchTime}ms, status: ${response.status}`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log("📥 Received recommendations data:", data)
 
       // The API docs show data.recommendations array where each item can either:
       // - be a flat salon-like object (with _id, salonName, ownerId, etc.)
@@ -260,32 +378,51 @@ const Homescreen = ({ navigation }) => {
       // Handle both shapes robustly:
       if (data.success && (data.recommendations || data.data || data.recommendation)) {
         const items = data.recommendations || data.data || data.recommendation
-        
+
         if (!Array.isArray(items) || items.length === 0) {
+          console.warn("⚠️ No recommendations in response")
           setError("No recommendations available. Try making some bookings first!")
           setStudios([])
           setLoading(false)
           return
         }
 
+        console.log(`✅ Found ${items.length} recommendations`)
+
+        // Log first recommendation to see structure
+        if (items.length > 0) {
+          console.log("📋 Sample recommendation structure:", JSON.stringify(items[0], null, 2))
+        }
+
         // Filter out recommendations without ownerId (required for booking)
         const validItems = items.filter((rec) => {
           const salon = rec.salon || rec
-          const hasOwnerId = rec.ownerId || salon.ownerId || salon.owner?._id
+          const hasOwnerId = rec.ownerId || salon.ownerId || salon.owner?._id || salon.salonOwnerId
+          if (!hasOwnerId) {
+            console.warn("⚠️ Recommendation missing ownerId:", {
+              recKeys: Object.keys(rec),
+              salonKeys: salon ? Object.keys(salon) : "no salon",
+              recOwnerId: rec.ownerId,
+              salonOwnerId: salon?.ownerId,
+              salonOwner: salon?.owner
+            })
+          }
           return !!hasOwnerId
         })
+        
+        console.log(`✅ Filtered to ${validItems.length} valid recommendations with ownerId`)
 
         const transformedStudios = validItems.map((rec, index) => {
           // rec may be { salon: {...}, score, reasons } OR may be salon-like directly
           // The recommendations API returns ownerId at both top level and nested in salon
           const salon = rec.salon || rec
           const salonId = salon._id || salon.salonId || salon.id || rec._id || index
-          
+
           // Extract ownerId - check both top level and nested, handle various formats
           let ownerId = null
           // Try top-level ownerId first (recommendations API provides this)
           const ownerIdSource = rec.ownerId || salon.ownerId || salon.owner?._id
-          
+
           if (ownerIdSource) {
             if (typeof ownerIdSource === "object") {
               // If it's an object (MongoDB ObjectId), try to get _id or convert to string
@@ -315,7 +452,7 @@ const Homescreen = ({ navigation }) => {
           // If matchScore looks like 0..1 keep it; convertScoreToRating handles both
           const rating = convertScoreToRating(matchScore)
 
-          return {
+          const studioObj = {
             id: salonId,
             name: salon.salonName || salon.salonName || salon.name || "Unknown Studio",
             price: price,
@@ -328,9 +465,18 @@ const Homescreen = ({ navigation }) => {
             isSubscribed: salon.isSubscribed || false,
             ownerId: ownerId,
           }
+          
+          if (!ownerId) {
+            console.warn(`⚠️ Studio "${studioObj.name}" (${salonId}) has no ownerId!`)
+          } else {
+            console.log(`✅ Studio "${studioObj.name}" has ownerId: ${ownerId}`)
+          }
+          
+          return studioObj
         })
-        
+
         setStudios(transformedStudios)
+        console.log(`✅ Loaded ${transformedStudios.length} studios`)
         // Reset to first card when new data is loaded
         setCurrentIndex(0)
 
@@ -338,9 +484,11 @@ const Homescreen = ({ navigation }) => {
           setError("No recommendations available. Try making some bookings first!")
         }
       } else {
+        console.error("❌ Invalid response format:", data)
         throw new Error("Invalid response format")
       }
     } catch (err) {
+      console.error("❌ Error fetching recommendations:", err)
       setError(err.message || "Failed to load recommendations")
 
       // Keep a minimal fallback to allow UI to render in dev, but prefer real data.
@@ -357,7 +505,8 @@ const Homescreen = ({ navigation }) => {
         },
       ])
     } finally {
-      
+      const totalTime = Date.now() - startTime
+      console.log(`⏱️ Total loading time: ${totalTime}ms`)
       setLoading(false)
     }
   }
@@ -386,7 +535,7 @@ const Homescreen = ({ navigation }) => {
         setTranslatedStudios([])
         return
       }
-      
+
       if (currentLanguage === "th" && studios.length > 0) {
         try {
           const translated = await Promise.all(
@@ -470,60 +619,87 @@ const Homescreen = ({ navigation }) => {
     }),
   ).current
 
-  const swipeRight = () => {
+  const swipeRight = async () => {
     const currentIndexValue = currentIndexRef.current
-    
-    // Animate current card out with opacity
-    Animated.parallel([
-      Animated.timing(position, {
-        toValue: { x: SCREEN_WIDTH + 100, y: 0 },
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(async () => {
-      // Use refs to get latest values
-      const currentStudios = studiosRef.current
-      const currentTranslatedStudios = translatedStudiosRef.current
-      const currentIndexValue = currentIndexRef.current
-      
-      // Use studios as source of truth to ensure data exists
-      const studiosToUse = 
-        currentTranslatedStudios.length > 0 && 
-        currentTranslatedStudios.length === currentStudios.length 
-          ? currentTranslatedStudios 
-          : currentStudios
-      
-      const currentStudio = studiosToUse[currentIndexValue]
 
-      // Send booking request to server
-      if (currentStudio) {
-        const bookingResult = await sendBookingRequest(currentStudio)
+    // Use refs to get latest values
+    const currentStudios = studiosRef.current
+    const currentTranslatedStudios = translatedStudiosRef.current
+    const currentIndexValueRef = currentIndexRef.current
+
+    // Use studios as source of truth to ensure data exists
+    const studiosToUse =
+      currentTranslatedStudios.length > 0 &&
+        currentTranslatedStudios.length === currentStudios.length
+        ? currentTranslatedStudios
+        : currentStudios
+
+    const currentStudio = studiosToUse[currentIndexValueRef]
+
+    if (!currentStudio) {
+      Alert.alert("Error", "No studio data available for booking")
+      return
+    }
+
+    // Set booking in progress
+    setBookingInProgress(true)
+
+    try {
+      console.log("📤 Sending booking request for studio:", currentStudio.name || currentStudio.id)
+      
+      // Send booking request to server BEFORE animating
+      const bookingResult = await sendBookingRequest(currentStudio)
+
+      console.log("📥 Booking result:", bookingResult)
+
+      if (bookingResult?.success) {
+        // Show success notification
+        setNotificationType("booking")
+        setShowNotification(true)
+        setTimeout(() => setShowNotification(false), 2000)
         
-        if (bookingResult?.success) {
-          // Show success notification
-          setNotificationType("booking")
-          setShowNotification(true)
-          setTimeout(() => setShowNotification(false), 2000)
-        } else {
-          // Show error notification
-          Alert.alert(
-            "Booking Failed",
-            bookingResult?.error?.error || bookingResult?.error || "Failed to send booking request. Please try again.",
-            [{ text: "OK" }]
-          )
-        }
+        // Animate card out after successful booking
+        Animated.parallel([
+          Animated.timing(position, {
+            toValue: { x: SCREEN_WIDTH + 100, y: 0 },
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(cardOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Advance to next card
+          nextCard()
+          setBookingInProgress(false)
+        })
       } else {
-        Alert.alert("Error", "No studio data available for booking")
+        // Show error notification - DON'T advance card
+        const errorMessage = bookingResult?.error?.error || 
+                            bookingResult?.error?.message || 
+                            bookingResult?.error || 
+                            "Failed to send booking request. Please try again."
+        
+        console.error("❌ Booking failed:", errorMessage)
+        
+        Alert.alert(
+          "Booking Failed",
+          errorMessage,
+          [{ text: "OK" }]
+        )
+        setBookingInProgress(false)
       }
-
-      // Advance to next card (this will trigger useEffect to animate new card in)
-      nextCard()
-    })
+    } catch (error) {
+      console.error("❌ Booking error:", error)
+      Alert.alert(
+        "Booking Error",
+        error.message || "An unexpected error occurred. Please try again.",
+        [{ text: "OK" }]
+      )
+      setBookingInProgress(false)
+    }
   }
 
   const swipeLeft = () => {
@@ -565,7 +741,7 @@ const Homescreen = ({ navigation }) => {
     // Use refs to get the latest values (avoid closure issues)
     const currentStudios = studiosRef.current
     const currentIndexValue = currentIndexRef.current
-    
+
     // Always check against studios (source of truth) for length
     if (currentStudios.length === 0) {
       return
@@ -616,7 +792,7 @@ const Homescreen = ({ navigation }) => {
     if (index < currentIndex) {
       return null
     }
-    
+
     // Only render the current card
     if (index !== currentIndex) {
       return null
@@ -624,7 +800,7 @@ const Homescreen = ({ navigation }) => {
 
     // Get the actual studio data - use source of truth (studios) if studio param is undefined
     const actualStudio = studio || studios[index] || (translatedStudios.length > 0 && translatedStudios.length === studios.length ? translatedStudios[index] : null)
-    
+
     // Safety check: ensure studio exists and has required data
     if (!actualStudio) {
       return null
@@ -678,7 +854,7 @@ const Homescreen = ({ navigation }) => {
 
           <Animated.View style={[styles.nopeIndicator, { opacity: nopeOpacity }]}>
             <View style={styles.nopeBadge}>
-             
+
             </View>
           </Animated.View>
 
@@ -751,10 +927,10 @@ const Homescreen = ({ navigation }) => {
 
   // Use translated studios only if they're fully ready and match the studios length
   // This prevents empty cards when translation is in progress
-  const studiosToRender = 
-    translatedStudios.length > 0 && 
-    translatedStudios.length === studios.length 
-      ? translatedStudios 
+  const studiosToRender =
+    translatedStudios.length > 0 &&
+      translatedStudios.length === studios.length
+      ? translatedStudios
       : studios
 
   // Loading state
@@ -763,7 +939,7 @@ const Homescreen = ({ navigation }) => {
       <View style={[styles.container, styles.centerContent]}>
         <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
         <ActivityIndicator size="large" color="#D96073" />
-       
+
       </View>
     )
   }
@@ -829,6 +1005,36 @@ const Homescreen = ({ navigation }) => {
         )}
       </View>
 
+      {/* Action Buttons
+      {studiosToRender.length > 0 && currentIndex < studiosToRender.length && (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.skipButton, bookingInProgress && styles.buttonDisabled]}
+            onPress={swipeLeft}
+            activeOpacity={0.7}
+            disabled={bookingInProgress}
+          >
+
+       
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.bookButton, bookingInProgress && styles.buttonDisabled]}
+            onPress={swipeRight}
+            activeOpacity={0.7}
+            disabled={bookingInProgress}
+          >
+            {bookingInProgress ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )} */}
+
       <BottomNav navigation={navigation} active="home" bottomOffset={moderateScale(12)} />
     </View>
   )
@@ -841,29 +1047,38 @@ const Homescreen = ({ navigation }) => {
  */
 const sendBookingRequest = async (studio) => {
   try {
+    console.log("🔍 Starting booking request for studio:", JSON.stringify(studio, null, 2))
+    console.log("🔍 Studio ownerId:", studio.ownerId)
+    console.log("🔍 Studio keys:", Object.keys(studio))
+    
     if (!studio) {
-      return
+      console.error("❌ No studio provided")
+      return { success: false, error: "No studio information provided" }
     }
 
     const currentUser = auth().currentUser
     if (!currentUser) {
-      return
+      console.error("❌ No authenticated user")
+      return { success: false, error: "You must be logged in to make a booking" }
     }
     const firebaseUID = currentUser.uid
+    console.log("👤 User UID:", firebaseUID)
 
     // Determine salonId from studio
     const salonId = studio.id || studio._id || studio.salonId
     if (!salonId) {
-      return
+      console.error("❌ No salon ID found in studio:", studio)
+      return { success: false, error: "Salon ID is missing. Please try another salon." }
     }
-    
+    console.log("🏢 Salon ID:", salonId)
+
     // Fetch user profile data from Firestore
     let userName = ""
     let userEmail = ""
-    
+
     try {
       const userDoc = await firestore().collection("Useraccount").doc(firebaseUID).get()
-      
+
       if (userDoc.exists) {
         const userData = userDoc.data()
         userName = userData?.name || currentUser.displayName || "User"
@@ -880,13 +1095,20 @@ const sendBookingRequest = async (studio) => {
     }
 
     if (!userEmail) {
-      return
+      console.error("❌ No user email found")
+      return { success: false, error: "User email is required. Please update your profile." }
     }
+    console.log("📧 User email:", userEmail)
 
     // Determine ownerId: prefer studio.ownerId, else fetch salon details from backend
     let salonOwnerId = studio.ownerId || null
+    console.log("🔍 Initial salonOwnerId from studio:", salonOwnerId)
 
     if (!salonOwnerId) {
+      console.log("🔍 Fetching salon owner ID from backend...")
+      console.log("🌐 API_BASE_URL:", API_BASE_URL)
+      console.log("🌐 Fetching from:", `${API_BASE_URL}/api/v1/salons/${salonId}/with-owner`)
+      
       // Try the /with-owner endpoint first as it populates ownerId
       try {
         const salonWithOwnerResponse = await fetch(`${API_BASE_URL}/api/v1/salons/${salonId}/with-owner`, {
@@ -896,10 +1118,14 @@ const sendBookingRequest = async (studio) => {
           },
         })
 
+        console.log("📥 /with-owner response status:", salonWithOwnerResponse.status)
+
         if (salonWithOwnerResponse.ok) {
           const salonJson = await salonWithOwnerResponse.json()
+          console.log("📥 /with-owner response data:", JSON.stringify(salonJson, null, 2))
           const salon = salonJson.data || salonJson
-          
+          console.log("📥 Extracted salon object:", JSON.stringify(salon, null, 2))
+
           // Extract ownerId - handle various formats (can be object if populated)
           if (salon?.ownerId) {
             if (typeof salon.ownerId === "object") {
@@ -909,14 +1135,22 @@ const sendBookingRequest = async (studio) => {
               // If it's a string or other primitive, convert to string
               salonOwnerId = String(salon.ownerId)
             }
+            console.log("✅ Found owner ID from /with-owner:", salonOwnerId)
+          } else {
+            console.warn("⚠️ No ownerId in /with-owner response. Salon keys:", Object.keys(salon))
           }
+        } else {
+          const errorText = await salonWithOwnerResponse.text().catch(() => "Could not read error")
+          console.warn("⚠️ /with-owner endpoint returned:", salonWithOwnerResponse.status, errorText)
         }
       } catch (err) {
-        // Continue to fallback
+        console.error("❌ Error fetching from /with-owner:", err.message)
+        console.error("❌ Full error:", err)
       }
-      
+
       // If still no ownerId, try regular endpoint as fallback
       if (!salonOwnerId) {
+        console.log("🔍 Trying regular salon endpoint...")
         try {
           const salonResponse = await fetch(`${API_BASE_URL}/api/v1/salons/${salonId}`, {
             method: "GET",
@@ -925,10 +1159,14 @@ const sendBookingRequest = async (studio) => {
             },
           })
 
+          console.log("📥 Regular endpoint response status:", salonResponse.status)
+
           if (salonResponse.ok) {
             const salonJson = await salonResponse.json()
+            console.log("📥 Regular endpoint response data:", JSON.stringify(salonJson, null, 2))
             const salon = salonJson.data || salonJson
-            
+            console.log("📥 Extracted salon from regular endpoint:", JSON.stringify(salon, null, 2))
+
             // Extract ownerId - handle various formats
             if (salon?.ownerId) {
               if (typeof salon.ownerId === "object") {
@@ -936,25 +1174,57 @@ const sendBookingRequest = async (studio) => {
               } else {
                 salonOwnerId = String(salon.ownerId)
               }
+              console.log("✅ Found owner ID from regular endpoint:", salonOwnerId)
+            } else {
+              console.warn("⚠️ No ownerId in regular endpoint response. Salon keys:", Object.keys(salon))
+              // Try alternative field names
+              if (salon.owner) {
+                salonOwnerId = salon.owner._id || salon.owner.toString() || String(salon.owner)
+                console.log("✅ Found owner ID from salon.owner:", salonOwnerId)
+              } else if (salon.salonOwnerId) {
+                salonOwnerId = String(salon.salonOwnerId)
+                console.log("✅ Found owner ID from salon.salonOwnerId:", salonOwnerId)
+              }
             }
+          } else {
+            const errorText = await salonResponse.text().catch(() => "Could not read error")
+            console.warn("⚠️ Regular salon endpoint returned:", salonResponse.status, errorText)
           }
         } catch (err) {
-          // Error handled below
+          console.error("❌ Error fetching from regular endpoint:", err.message)
+          console.error("❌ Full error:", err)
         }
       }
     } else {
       // Convert ownerId to string if it's not already
-      salonOwnerId = typeof salonOwnerId === "object" 
+      salonOwnerId = typeof salonOwnerId === "object"
         ? (salonOwnerId._id || salonOwnerId.toString() || String(salonOwnerId))
         : String(salonOwnerId)
+      console.log("✅ Using owner ID from studio:", salonOwnerId)
     }
 
     if (!salonOwnerId) {
+      console.error("❌ Could not find salonOwnerId after all attempts")
+      console.error("❌ Studio object:", JSON.stringify(studio, null, 2))
+      console.error("❌ Salon ID used:", salonId)
+      console.error("❌ API_BASE_URL:", API_BASE_URL)
+      
+      // Check if using localhost (won't work on physical devices)
+      if (API_BASE_URL.includes("localhost")) {
+        return {
+          success: false,
+          error: {
+            error: "Network Error: localhost won't work on physical devices",
+            message: "Please update API_BASE_URL to use your computer's IP address (e.g., http://192.168.x.x:3000). Check console for details."
+          }
+        }
+      }
+      
       return {
         success: false,
         error: {
           error: "Salon owner information is missing. This salon may not be properly configured.",
-          message: "Unable to send booking request. Please try another salon or contact support."
+          message: "Unable to send booking request. Please try another salon or contact support. Check console for details."
         }
       }
     }
@@ -977,6 +1247,9 @@ const sendBookingRequest = async (studio) => {
       weightKg: 0, // Can be updated later if user provides this info
     }
 
+    console.log("📤 Sending booking data:", bookingData)
+    console.log("🌐 API URL:", `${API_BASE_URL}/api/v1/bookings/create-booking`)
+
     const bookingResponse = await fetch(`${API_BASE_URL}/api/v1/bookings/create-booking`, {
       method: "POST",
       headers: {
@@ -985,27 +1258,38 @@ const sendBookingRequest = async (studio) => {
       body: JSON.stringify(bookingData),
     })
 
+    console.log("📥 Booking response status:", bookingResponse.status)
+
     if (bookingResponse.ok) {
       const result = await bookingResponse.json()
+      console.log("✅ Booking successful:", result)
       return { success: true, data: result }
     } else {
       let errorText = null
       let errorJson = null
       try {
         errorText = await bookingResponse.text()
+        console.error("❌ Booking error response:", errorText)
         try {
           errorJson = JSON.parse(errorText)
         } catch {
           // If parsing fails, errorJson stays null and we use errorText
         }
       } catch (err) {
-        // Error reading response
+        console.error("❌ Error reading response:", err)
       }
-      
-      return { success: false, error: errorJson || errorText || "Unknown error" }
+
+      return { 
+        success: false, 
+        error: errorJson || errorText || `Server error: ${bookingResponse.status}` 
+      }
     }
   } catch (error) {
-    return { success: false, error: error.message }
+    console.error("❌ Booking request exception:", error)
+    return { 
+      success: false, 
+      error: error.message || "Network error. Please check your connection and try again." 
+    }
   }
 }
 
@@ -1109,7 +1393,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: verticalScale(80),
+    paddingBottom: verticalScale(20),
   },
   backgroundCardsContainer: {
     position: "absolute",
@@ -1183,8 +1467,8 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   nopeBadge: {
-   
-    
+
+
     paddingVertical: moderateScale(8),
     borderRadius: moderateScale(8),
     alignItems: "center",
@@ -1321,6 +1605,49 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(11),
     color: "#C97B84",
     fontWeight: "500",
+  },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: moderateScale(20),
+    paddingHorizontal: moderateScale(20),
+    paddingBottom: moderateScale(100),
+    paddingTop: moderateScale(20),
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: moderateScale(32),
+    paddingVertical: moderateScale(16),
+    borderRadius: moderateScale(30),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    minWidth: moderateScale(140),
+    gap: moderateScale(8),
+  },
+  skipButton: {
+    backgroundColor: "#F69DAB",
+  },
+  bookButton: {
+    backgroundColor: "#D96073",
+  },
+  skipButtonText: {
+    fontSize: scaleFont(16),
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  bookButtonText: {
+    fontSize: scaleFont(16),
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 })
 
