@@ -14,7 +14,11 @@ const BottomNav = ({ navigation, active = 'home', bottomOffset = 18, fixedBottom
   return (
     // container covers whole screen but passes touches through outside nav
     <View pointerEvents="box-none" style={styles.container}>
-      <View style={[styles.bottomNav, { bottom: bottomPosition }]}>
+      <View 
+        style={[styles.bottomNav, { bottom: bottomPosition }]}
+        renderToHardwareTextureAndroid={true}
+        shouldRasterizeIOS={true}
+      >
         <TouchableOpacity
           style={styles.navItem}
           activeOpacity={0.8}
@@ -103,6 +107,9 @@ const styles = StyleSheet.create({
     elevation: 12,
     paddingHorizontal: 10,
     zIndex: 999,
+    // HD rendering
+    renderToHardwareTextureAndroid: true,
+    shouldRasterizeIOS: true,
   },
   navItem: {
     flex: 1,

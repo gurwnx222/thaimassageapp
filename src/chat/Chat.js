@@ -24,9 +24,10 @@ import { useLanguage } from '../context/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
 
-// Backend URL - Replace with your actual backend URL
-const SOCKET_URL = 'http://192.168.100.11:5000'; // e.g., 'http://192.168.1.100:5000'
-const API_URL = 'http://192.168.100.11:5000/api';
+// Backend URL
+const BACKEND_BASE_URL = 'https://luci-server-useast.duckdns.org';
+const SOCKET_URL = `${BACKEND_BASE_URL}/chat`; // Socket.IO endpoint
+const API_URL = `${BACKEND_BASE_URL}/api`; // REST API endpoint
 
 const ChatScreen = ({ route, navigation }) => {
   const { currentLanguage, t, formatText, translateDynamic } = useLanguage();
@@ -72,20 +73,30 @@ const ChatScreen = ({ route, navigation }) => {
 
   const initializeSocket = () => {
     socketRef.current = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Support both for better compatibility
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      forceNew: true,
+      timeout: 20000,
     });
 
     // Connection events
     socketRef.current.on('connect', () => {
-      console.log('Connected to socket server');
+      console.log('✅ Connected to socket server:', SOCKET_URL);
       socketRef.current.emit('user_connected', currentUserId);
     });
 
-    socketRef.current.on('disconnect', () => {
-      console.log('Disconnected from socket server');
+    socketRef.current.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from socket server:', reason);
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error);
+      Alert.alert(
+        t('alerts.error') || 'Connection Error',
+        'Unable to connect to chat server. Please check your internet connection.'
+      );
     });
 
     // Receive new message
@@ -177,29 +188,58 @@ const ChatScreen = ({ route, navigation }) => {
   const loadMessages = async () => {
     try {
       setLoading(true);
+      console.log('Loading messages from:', `${API_URL}/messages/${conversationId}`);
+      
       const response = await axios.get(
-        `${API_URL}/messages/${conversationId}`
+        `${API_URL}/messages/${conversationId}`,
+        {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       );
 
-      const formattedMessages = response.data.map((msg) => ({
-        id: msg._id,
-        text: msg.text,
-        time: formatTime(msg.createdAt),
-        isSent: msg.sender._id === currentUserId,
-        seen: msg.isRead,
-        delivered: msg.isDelivered,
-        image: msg.imageUrl,
+      console.log('Messages response:', response.data);
+
+      // Handle different response formats
+      const messagesData = response.data.messages || response.data || [];
+      
+      const formattedMessages = messagesData.map((msg) => ({
+        id: msg._id || msg.id,
+        text: msg.text || msg.message,
+        time: formatTime(msg.createdAt || msg.timestamp),
+        isSent: (msg.sender?._id || msg.senderId) === currentUserId,
+        seen: msg.isRead || false,
+        delivered: msg.isDelivered || false,
+        image: msg.imageUrl || msg.image,
       }));
 
       setMessages(formattedMessages);
+      console.log('Loaded messages:', formattedMessages.length);
 
       // Mark all as read
-      await axios.post(`${API_URL}/messages/mark-read`, {
-        conversationId,
-        userId: currentUserId,
-      });
+      try {
+        await axios.post(`${API_URL}/messages/mark-read`, {
+          conversationId,
+          userId: currentUserId,
+        }, {
+          timeout: 5000,
+        });
+      } catch (readError) {
+        console.warn('Could not mark messages as read:', readError);
+        // Don't fail the whole operation if marking as read fails
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      Alert.alert(
+        t('alerts.error') || 'Error',
+        'Failed to load messages. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -224,7 +264,7 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const handleSend = () => {
-    if (inputText.trim()) {
+    if (inputText.trim() && socketRef.current && socketRef.current.connected) {
       const tempId = Date.now().toString();
       const newMessage = {
         id: tempId,
@@ -240,23 +280,39 @@ const ChatScreen = ({ route, navigation }) => {
       setMessages([...messages, newMessage]);
       
       // Emit to server
-      socketRef.current.emit('send_message', {
-        conversationId: conversationId,
-        senderId: currentUserId,
-        receiverId: receiverId,
-        text: inputText,
-        messageType: 'text',
-        tempId: tempId,
-      });
+      try {
+        socketRef.current.emit('send_message', {
+          conversationId: conversationId,
+          senderId: currentUserId,
+          receiverId: receiverId,
+          text: inputText,
+          messageType: 'text',
+          tempId: tempId,
+        });
+        console.log('Message sent:', inputText);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        Alert.alert(
+          t('alerts.error') || 'Error',
+          'Failed to send message. Please try again.'
+        );
+      }
 
       setInputText('');
       
       // Stop typing indicator
-      socketRef.current.emit('typing', {
-        userId: currentUserId,
-        receiverId: receiverId,
-        isTyping: false,
-      });
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('typing', {
+          userId: currentUserId,
+          receiverId: receiverId,
+          isTyping: false,
+        });
+      }
+    } else if (!socketRef.current || !socketRef.current.connected) {
+      Alert.alert(
+        t('alerts.error') || 'Connection Error',
+        'Not connected to chat server. Please check your internet connection.'
+      );
     }
   };
 
@@ -304,6 +360,11 @@ const ChatScreen = ({ route, navigation }) => {
   const handleTyping = (text) => {
     setInputText(text);
 
+    // Only emit typing if socket is connected
+    if (!socketRef.current || !socketRef.current.connected) {
+      return;
+    }
+
     // Clear previous timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -319,11 +380,13 @@ const ChatScreen = ({ route, navigation }) => {
 
       // Stop typing after 2 seconds of inactivity
       typingTimeoutRef.current = setTimeout(() => {
-        socketRef.current.emit('typing', {
-          userId: currentUserId,
-          receiverId: receiverId,
-          isTyping: false,
-        });
+        if (socketRef.current && socketRef.current.connected) {
+          socketRef.current.emit('typing', {
+            userId: currentUserId,
+            receiverId: receiverId,
+            isTyping: false,
+          });
+        }
       }, 2000);
     } else {
       socketRef.current.emit('typing', {
@@ -469,7 +532,7 @@ const ChatScreen = ({ route, navigation }) => {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

@@ -8,40 +8,112 @@ import {
   StatusBar,
   Platform,
   ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useLanguage } from '../context/LanguageContext';
+import auth from '@react-native-firebase/auth';
 // Import your existing BottomNav component
 import BottomNav from '../component/BottomNav';
 
+// Backend URL
+const API_BASE_URL = 'https://luci-server-useast.duckdns.org';
+
 const MessagesScreen = ({ navigation }) => {
   const { currentLanguage, t, formatText, translateDynamic } = useLanguage();
+  const insets = useSafeAreaInsets();
   
-  const [currentBooking, setCurrentBooking] = useState({
-    id: '1',
-    name: 'Zen Thai Studio',
-    time: '3:00 PM',
-    avatar: 'https://via.placeholder.com/60',
-  });
+  // Initialize with empty data - will be fetched from API
+  const [currentBooking, setCurrentBooking] = useState(null);
+  const [recentChats, setRecentChats] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [recentChats, setRecentChats] = useState([
-    {
-      id: '1',
-      name: 'Zen Thai Studio',
-      message: 'thank you for book.....',
-      time: '6:30 A.M',
-      avatar: 'https://via.placeholder.com/60',
-    },
-  ]);
+  const [translatedCurrentBooking, setTranslatedCurrentBooking] = useState(null);
+  const [translatedRecentChats, setTranslatedRecentChats] = useState([]);
 
-  const [translatedCurrentBooking, setTranslatedCurrentBooking] = useState(currentBooking);
-  const [translatedRecentChats, setTranslatedRecentChats] = useState(recentChats);
+  // Fetch conversations from API
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  const fetchConversations = async () => {
+    try {
+      setLoading(true);
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      const firebaseUID = currentUser.uid;
+
+      // Fetch conversations from backend API
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/conversations/${firebaseUID}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Set conversations/chats
+        const conversations = data.conversations || data.chats || [];
+        setRecentChats(conversations);
+
+        // Set current booking if available
+        if (data.currentBooking) {
+          setCurrentBooking(data.currentBooking);
+        } else {
+          // Try to get current booking from the first accepted booking
+          const acceptedBooking = conversations.find(
+            (chat) => chat.status === 'accepted' || chat.bookingStatus === 'accepted'
+          );
+          if (acceptedBooking) {
+            setCurrentBooking({
+              id: acceptedBooking.id || acceptedBooking._id,
+              name: acceptedBooking.salonName || acceptedBooking.name,
+              time: acceptedBooking.appointmentTime || acceptedBooking.time,
+              avatar: acceptedBooking.salonImage || acceptedBooking.avatar,
+              conversationId: acceptedBooking.conversationId || acceptedBooking.id,
+              receiverId: acceptedBooking.salonOwnerId || acceptedBooking.receiverId,
+            });
+          } else {
+            setCurrentBooking(null);
+          }
+        }
+      } else {
+        setRecentChats([]);
+        setCurrentBooking(null);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      // On error, set empty arrays (user will see empty state)
+      setRecentChats([]);
+      setCurrentBooking(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Translate current booking when language changes
   useEffect(() => {
+    if (!currentBooking) {
+      setTranslatedCurrentBooking(null);
+      return;
+    }
+
     const translateBooking = async () => {
       if (currentLanguage === 'th') {
         const translatedName = await translateDynamic(currentBooking.name);
@@ -63,20 +135,16 @@ const MessagesScreen = ({ navigation }) => {
   // Translate recent chats when language changes
   useEffect(() => {
     const translateChats = async () => {
+      if (recentChats.length === 0) {
+        setTranslatedRecentChats([]);
+        return;
+      }
+
       if (currentLanguage === 'th') {
         const translated = await Promise.all(
           recentChats.map(async (chat) => {
             const translatedName = await translateDynamic(chat.name);
-            
-            // Translate message
-            let translatedMessage = chat.message;
-            if (chat.message === 'thank you for book.....') {
-              translatedMessage = t('messages.thankYouForBook');
-            } else {
-              translatedMessage = await translateDynamic(chat.message);
-            }
-
-            // Translate time
+            const translatedMessage = await translateDynamic(chat.message);
             const translatedTime = await translateTime(chat.time);
 
             return {
@@ -115,17 +183,22 @@ const MessagesScreen = ({ navigation }) => {
   };
 
   const handleChatPress = (chat) => {
-    // Navigate to chat screen// add configuration according to your api
+    const currentUser = auth().currentUser;
+    if (!currentUser) {
+      return;
+    }
+
+    // Navigate to chat screen
     navigation.navigate('chat', {
-      conversationId: '60f7b3b3b3b3b3b3b3b3b3b3', // Or null for new conversation
-      receiverId: '60f7b3b3b3b3b3b3b3b3b3b4', // User ID from MongoDB
+      conversationId: chat.conversationId || null,
+      receiverId: chat.receiverId || chat.id,
       receiverName: chat.name,
-      currentUserId: '60f7b3b3b3b3b3b3b3b3b3b5', // Current logged-in user ID
+      currentUserId: currentUser.uid,
     });
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#EDE5DD" />
 
       {/* Header */}
@@ -133,7 +206,7 @@ const MessagesScreen = ({ navigation }) => {
         colors={['#DEAAB2', '#FFDDE5']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'ios' ? 8 : 16) }]}
       >
         <View style={styles.headerContent}>
           <View style={styles.headerTextContainer}>
@@ -142,29 +215,31 @@ const MessagesScreen = ({ navigation }) => {
         </View>
 
         {/* Current Booking in Header */}
-        <View style={styles.currentBookingInHeader}>
-          <Text style={styles.currentBookingLabel}>
-            {t('messages.currentBooking')}
-          </Text>
-          <TouchableOpacity
-            style={styles.currentBookingRow}
-            onPress={() => handleChatPress(translatedCurrentBooking)}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={{ uri: translatedCurrentBooking.avatar }}
-              style={styles.currentBookingAvatar}
-            />
-            <View style={styles.currentBookingTextContainer}>
-              <Text style={styles.currentBookingName}>
-                {translatedCurrentBooking.name}
-              </Text>
-              <Text style={styles.currentBookingTime}>
-                {t('messages.at')} {translatedCurrentBooking.time}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        {translatedCurrentBooking && (
+          <View style={styles.currentBookingInHeader}>
+            <Text style={styles.currentBookingLabel}>
+              {t('messages.currentBooking')}
+            </Text>
+            <TouchableOpacity
+              style={styles.currentBookingRow}
+              onPress={() => handleChatPress(translatedCurrentBooking)}
+              activeOpacity={0.7}
+            >
+              <Image
+                source={{ uri: translatedCurrentBooking.avatar }}
+                style={styles.currentBookingAvatar}
+              />
+              <View style={styles.currentBookingTextContainer}>
+                <Text style={styles.currentBookingName}>
+                  {translatedCurrentBooking.name}
+                </Text>
+                <Text style={styles.currentBookingTime}>
+                  {t('messages.at')} {translatedCurrentBooking.time}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </LinearGradient>
 
       <ScrollView
@@ -175,31 +250,55 @@ const MessagesScreen = ({ navigation }) => {
         {/* Recent Chats Section */}
         <View style={styles.recentChatsSection}>
           <Text style={styles.sectionTitle}>{t('messages.recentChats')}</Text>
-          {translatedRecentChats.map((chat) => (
-            <TouchableOpacity
-              key={chat.id}
-              style={styles.chatItem}
-              onPress={() => handleChatPress(chat)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.chatAvatarContainer}>
-                <Image source={{ uri: chat.avatar }} style={styles.chatAvatar} />
-              </View>
-              <View style={styles.chatContent}>
-                <View style={styles.chatHeader}>
-                  <Text style={styles.chatName}>{chat.name}</Text>
-                  <Text style={styles.chatTime}>{chat.time}</Text>
+          {loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{t('') || 'Loading...'}</Text>
+            </View>
+          ) : translatedRecentChats.length > 0 ? (
+            translatedRecentChats.map((chat) => (
+              <TouchableOpacity
+                key={chat.id}
+                style={styles.chatItem}
+                onPress={() => handleChatPress(chat)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.chatAvatarContainer}>
+                  {chat.avatar ? (
+                    <Image source={{ uri: chat.avatar }} style={styles.chatAvatar} />
+                  ) : (
+                    <View style={[styles.chatAvatar, styles.avatarPlaceholder]}>
+                      <Icon name="account" size={24} color="#D4A5B3" />
+                    </View>
+                  )}
                 </View>
-                <Text style={styles.chatMessage}>{chat.message}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.chatContent}>
+                  <View style={styles.chatHeader}>
+                    <Text style={styles.chatName}>{chat.name}</Text>
+                    <Text style={styles.chatTime}>{chat.time}</Text>
+                  </View>
+                  <Text style={styles.chatMessage} numberOfLines={1}>
+                    {chat.message}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Icon name="message-outline" size={64} color="#D4A5B3" />
+              <Text style={styles.emptyText}>
+                {t('') || 'No messages yet'}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                {t('') || 'Your conversations will appear here'}
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
       {/* Bottom Navigation */}
       <BottomNav navigation={navigation} active="messages" />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -207,7 +306,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#EDE5DD',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollView: {
     flex: 1,
@@ -221,7 +319,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 42,
     borderBottomRightRadius: 42,
-    paddingTop: Platform.OS === 'ios' ? 44 : 32,
     shadowColor: '#D7B5BA',
     shadowOffset: {
       width: 4,
@@ -350,6 +447,31 @@ const styles = StyleSheet.create({
   chatMessage: {
     fontSize: 14,
     color: '#6B5B60',
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#F0E5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+    paddingHorizontal: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B5B60',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9B8B8F',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

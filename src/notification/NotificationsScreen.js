@@ -385,7 +385,7 @@ const NotificationsScreen = ({ navigation }) => {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#D96073" />
           <Text style={styles.loadingText}>
-            {t('notifications.loading') || 'Loading notifications...'}
+            {t('') || 'Loading notifications...'}
           </Text>
         </View>
       </View>
@@ -512,10 +512,10 @@ const NotificationsScreen = ({ navigation }) => {
           <View style={styles.emptyContainer}>
             <Icon name="bell-off-outline" size={64} color="#D4A5B3" />
             <Text style={styles.emptyText}>
-              {t('notifications.noNotifications') || 'No notifications yet'}
+              {t('') || 'No notifications yet'}
             </Text>
             <Text style={styles.emptySubtext}>
-              {t('notifications. emptySubtext') || 'Your booking updates will appear here'}
+              {t('') || 'Your booking updates will appear here'}
             </Text>
           </View>
         )}
