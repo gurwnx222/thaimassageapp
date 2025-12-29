@@ -543,7 +543,7 @@ const Homescreen = ({ navigation }) => {
       setCurrentIndex(0)
 
       if (transformedStudios.length === 0) {
-        setError("No providers available. Try making some bookings first!")
+        setError("There are no salons or massagers in your country")
       }
     } catch (err) {
       console.error("❌ Error fetching recommendations:", err)
