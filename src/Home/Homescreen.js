@@ -544,6 +544,8 @@ const Homescreen = ({ navigation }) => {
 
       if (transformedStudios.length === 0) {
         setError("There are no salons or massagers in your country")
+      } else {
+        setError(null)
       }
     } catch (err) {
       console.error("❌ Error fetching recommendations:", err)
@@ -1056,19 +1058,8 @@ const Homescreen = ({ navigation }) => {
     )
   }
 
-  // Error state
-  if (error && studios.length === 0) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#EDE2E0" />
-        <Icon name="alert-circle-outline" size={moderateScale(64)} color="#C97B84" />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchRecommendations}>
-          <Text style={styles.retryButtonText}>{t("home.retry") || "Retry"}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
+  // Error state - show message but keep header and bottom nav visible
+  const showEmptyState = error && studios.length === 0 && !loading
 
   return (
     <View style={styles.container}>
@@ -1106,16 +1097,26 @@ const Homescreen = ({ navigation }) => {
         </Animated.View>
       )}
 
-      <View style={styles.cardsContainer}>
-        {renderBackgroundCards()}
-        {studiosToRender.length > 0 && currentIndex < studiosToRender.length ? (
-          studiosToRender.map((s, i) => renderCard(s, i))
-        ) : (
-          <View style={styles.centerContent}>
-            <Text style={styles.errorText}>No more cards to display</Text>
-          </View>
-        )}
-      </View>
+      {showEmptyState ? (
+        <View style={styles.emptyStateContainer}>
+          <Icon name="alert-circle-outline" size={moderateScale(64)} color="#C97B84" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchRecommendations}>
+            <Text style={styles.retryButtonText}>{t("home.retry") || "Retry"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.cardsContainer}>
+          {renderBackgroundCards()}
+          {studiosToRender.length > 0 && currentIndex < studiosToRender.length ? (
+            studiosToRender.map((s, i) => renderCard(s, i))
+          ) : (
+            <View style={styles.centerContent}>
+              <Text style={styles.errorText}>No more cards to display</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Action Buttons
       {studiosToRender.length > 0 && currentIndex < studiosToRender.length && (
@@ -1373,6 +1374,13 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(16),
     color: "#3D2C2C",
     fontWeight: "600",
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: moderateScale(20),
+    paddingBottom: verticalScale(100), // Space for bottom nav
   },
   errorText: {
     marginTop: verticalScale(16),
